@@ -14,7 +14,7 @@
 // Shaders
 #include "Shader.h"
 
-// Macros para normalizar coordenadas en base a tu imagen de 934x1466
+// Formulas para colocar coordenadas y que queden bien en el plano
 #define X_GL(x) (((x) / 934.0f) * 2.0f - 1.0f)
 #define Y_GL(y) (1.0f - ((y) / 1466.0f) * 2.0f)
 
@@ -69,52 +69,52 @@ int main() {
 	// PEGAR ESTO (Tus nuevos vértices e índices de Deadpool):
 	float vertices[] = {
 		// --- POLÍGONO A ---
-		X_GL(349), Y_GL(631), 0.0f,   0.8f, 0.0f, 0.0f, // 0 (Vértice 1)
-		X_GL(490), Y_GL(620), 0.0f,   0.8f, 0.0f, 0.0f, // 1 (Vértice 2)
-		X_GL(326), Y_GL(483), 0.0f,   0.8f, 0.0f, 0.0f, // 2 (Vértice 3)
-		X_GL(426), Y_GL(411), 0.0f,   0.8f, 0.0f, 0.0f, // 3 (Vértice 4)
-		X_GL(497), Y_GL(480), 0.0f,   0.8f, 0.0f, 0.0f, // 4 (Vértice 5)
+		X_GL(349), Y_GL(631), 0.0f,   0.8f, 0.0f, 0.04f, // 0 (Vértice 1)
+		X_GL(490), Y_GL(620), 0.0f,   0.8f, 0.0f, 0.04f, // 1 (Vértice 2)
+		X_GL(326), Y_GL(483), 0.0f,   0.8f, 0.0f, 0.04f, // 2 (Vértice 3)
+		X_GL(426), Y_GL(411), 0.0f,   0.8f, 0.0f, 0.04f, // 3 (Vértice 4)
+		X_GL(497), Y_GL(480), 0.0f,   0.8f, 0.0f, 0.04f, // 4 (Vértice 5)
 
 		// --- POLÍGONO B ---
-		X_GL(349), Y_GL(631), 0.0f,   0.6f, 0.0f, 0.0f, // 5 (Vértice 6)
-		X_GL(326), Y_GL(483), 0.0f,   0.6f, 0.0f, 0.0f, // 6 (Vértice 7)
-		X_GL(204), Y_GL(425), 0.0f,   0.6f, 0.0f, 0.0f, // 7 (Vértice 8)
-		X_GL(237), Y_GL(302), 0.0f,   0.6f, 0.0f, 0.0f, // 8 (Vértice 9)
-		X_GL(206), Y_GL(161), 0.0f,   0.6f, 0.0f, 0.0f, // 9 (Vértice 10)
-		X_GL(263), Y_GL(99),  0.0f,   0.6f, 0.0f, 0.0f, // 10 (Vértice 11)
-		X_GL(270), Y_GL(168), 0.0f,   0.6f, 0.0f, 0.0f, // 11 (Vértice 12)
+		X_GL(349), Y_GL(631), 0.0f,   0.75f, 0.03f, 0.05f, // 5 (Vértice 6)
+		X_GL(326), Y_GL(483), 0.0f,   0.75f, 0.03f, 0.05f, // 6 (Vértice 7)
+		X_GL(204), Y_GL(425), 0.0f,   0.75f, 0.03f, 0.05f, // 7 (Vértice 8)
+		X_GL(237), Y_GL(302), 0.0f,   0.75f, 0.03f, 0.05f, // 8 (Vértice 9)
+		X_GL(206), Y_GL(161), 0.0f,   0.75f, 0.03f, 0.05f, // 9 (Vértice 10)
+		X_GL(263), Y_GL(99),  0.0f,   0.75f, 0.03f, 0.05f, // 10 (Vértice 11)
+		X_GL(270), Y_GL(168), 0.0f,   0.75f, 0.03f, 0.05f, // 11 (Vértice 12)
 
 		// Polígono C
-		X_GL(490), Y_GL(620), 0.0f,   0.6f, 0.0f, 0.0f, // 12 (Vértice 13)
-		X_GL(497), Y_GL(480), 0.0f,   0.6f, 0.0f, 0.0f, // 13 (Vértice 14)
-		X_GL(578), Y_GL(303), 0.0f,   0.6f, 0.0f, 0.0f, // 14 (Vértice 15)
-		X_GL(527), Y_GL(162), 0.0f,   0.6f, 0.0f, 0.0f, // 15 (Vértice 16)
-		X_GL(529), Y_GL(93), 0.0f,   0.6f, 0.0f, 0.0f, // 16 (Vértice 17)
-		X_GL(589), Y_GL(210),  0.0f,   0.6f, 0.0f, 0.0f, // 17 (Vértice 18)
-		X_GL(600), Y_GL(382), 0.0f,   0.6f, 0.0f, 0.0f, // 18 (Vértice 19)
+		X_GL(490), Y_GL(620), 0.0f,   0.83f, 0.0f, 0.0f, // 12 (Vértice 13)
+		X_GL(497), Y_GL(480), 0.0f,   0.83f, 0.0f, 0.0f, // 13 (Vértice 14)
+		X_GL(578), Y_GL(303), 0.0f,   0.83f, 0.0f, 0.0f, // 14 (Vértice 15)
+		X_GL(527), Y_GL(162), 0.0f,   0.83f, 0.0f, 0.0f, // 15 (Vértice 16)
+		X_GL(529), Y_GL(93), 0.0f,   0.83f, 0.0f, 0.0f, // 16 (Vértice 17)
+		X_GL(589), Y_GL(210),  0.0f,   0.83f, 0.0f, 0.0f, // 17 (Vértice 18)
+		X_GL(600), Y_GL(382), 0.0f,   0.83f, 0.0f, 0.0f, // 18 (Vértice 19)
 
 		// Polígono D 
-		X_GL(263), Y_GL(99), 0.0f,   0.6f, 0.0f, 0.0f, // 19 (Vértice 20)
-		X_GL(529), Y_GL(93), 0.0f,   0.6f, 0.0f, 0.0f, // 20 (Vértice 21)
-		X_GL(394), Y_GL(38), 0.0f,   0.6f, 0.0f, 0.0f, // 21 (Vértice 22)
+		X_GL(263), Y_GL(99), 0.0f,   0.9f, 0.1f, 0.1f, // 19 (Vértice 20)
+		X_GL(529), Y_GL(93), 0.0f,   0.9f, 0.1f, 0.1f, // 20 (Vértice 21)
+		X_GL(394), Y_GL(38), 0.0f,   0.9f, 0.1f, 0.1f, // 21 (Vértice 22)
 
 		// Polígono E
-		X_GL(419), Y_GL(95), 0.0f,   0.6f, 0.0f, 0.0f, // 22 (Vértice 23)
-		X_GL(529), Y_GL(93), 0.0f,   0.6f, 0.0f, 0.0f, // 23 (Vértice 24)
-		X_GL(527), Y_GL(162), 0.0f,   0.6f, 0.0f, 0.0f, // 24 (Vértice 25)
+		X_GL(419), Y_GL(95), 0.0f,   0.9f, 0.15f, 0.18f, // 22 (Vértice 23)
+		X_GL(529), Y_GL(93), 0.0f,   0.9f, 0.15f, 0.18f, // 23 (Vértice 24)
+		X_GL(527), Y_GL(162), 0.0f,   0.9f, 0.15f, 0.18f, // 24 (Vértice 25)
 
 		// Polígono F
-		X_GL(326), Y_GL(483), 0.0f,   0.6f, 0.0f, 0.0f, // 25 (Vértice 26)
-		X_GL(405), Y_GL(322), 0.0f,   0.6f, 0.0f, 0.0f, // 26 (Vértice 27)
-		X_GL(425), Y_GL(330), 0.0f,   0.6f, 0.0f, 0.0f, // 27 (Vértice 28)
-		X_GL(426), Y_GL(411), 0.0f,   0.6f, 0.0f, 0.0f, // 28 (Vértice 29)
+		X_GL(326), Y_GL(483), 0.0f,   0.7f, 0.0f, 0.0f, // 25 (Vértice 26)
+		X_GL(405), Y_GL(322), 0.0f,   0.7f, 0.0f, 0.0f, // 26 (Vértice 27)
+		X_GL(425), Y_GL(330), 0.0f,   0.7f, 0.0f, 0.0f, // 27 (Vértice 28)
+		X_GL(426), Y_GL(411), 0.0f,   0.7f, 0.0f, 0.0f, // 28 (Vértice 29)
 
 		// Polígono G
-		X_GL(426), Y_GL(411), 0.0f,   0.6f, 0.0f, 0.0f, // 29 (Vértice 30)
-		X_GL(425), Y_GL(330), 0.0f,   0.6f, 0.0f, 0.0f, // 30 (Vértice 31)
-		X_GL(436), Y_GL(326), 0.0f,   0.6f, 0.0f, 0.0f, // 31 (Vértice 32)
-		X_GL(515), Y_GL(443), 0.0f,   0.6f, 0.0f, 0.0f, // 32 (Vértice 33)
-		X_GL(497), Y_GL(480), 0.0f,   0.6f, 0.0f, 0.0f, // 33 (Vértice 34)
+		X_GL(426), Y_GL(411), 0.0f,   1.0f, 0.0f, 0.0f, // 29 (Vértice 30)
+		X_GL(425), Y_GL(330), 0.0f,   1.0f, 0.0f, 0.0f, // 30 (Vértice 31)
+		X_GL(436), Y_GL(326), 0.0f,   1.0f, 0.0f, 0.0f, // 31 (Vértice 32)
+		X_GL(515), Y_GL(443), 0.0f,   1.0f, 0.0f, 0.0f, // 32 (Vértice 33)
+		X_GL(497), Y_GL(480), 0.0f,   1.0f, 0.0f, 0.0f, // 33 (Vértice 34)
 
 		// Polígono H
 		X_GL(515), Y_GL(443), 0.0f,   0.1f, 0.12f, 0.18f, // 34 (Vértice 35)
@@ -166,12 +166,68 @@ int main() {
 		X_GL(483), Y_GL(180),  0.0f,   0.6f, 0.0f, 0.0f, // 68 (Vértice 64)
 		X_GL(436), Y_GL(326), 0.0f,   0.6f, 0.0f, 0.0f, // 69 (Vértice 65)
 
+		// Polígono Ñ
+		X_GL(297), Y_GL(330), 0.0f, 1.0f, 1.0f, 1.0f, // 70 (Vértice 66)
+		X_GL(319), Y_GL(315), 0.0f, 1.0f, 1.0f, 1.0f, // 71 (Vértice 67)
+		X_GL(374), Y_GL(330), 0.0f, 1.0f, 1.0f, 1.0f, // 72 (Vértice 68)
+		X_GL(359), Y_GL(347), 0.0f, 1.0f, 1.0f, 1.0f, // 73 (Vértice 69)
+		X_GL(310), Y_GL(347), 0.0f, 1.0f, 1.0f, 1.0f, // 74 (Vértice 70)
+
+		// Polígono O
+		X_GL(472), Y_GL(326), 0.0f, 1.0f, 1.0f, 1.0f, // 75 (Vértice 71)
+		X_GL(528), Y_GL(305), 0.0f, 1.0f, 1.0f, 1.0f, // 76 (Vértice 72)
+		X_GL(545), Y_GL(324), 0.0f, 1.0f, 1.0f, 1.0f, // 77 (Vértice 73)
+		X_GL(528), Y_GL(343), 0.0f, 1.0f, 1.0f, 1.0f, // 78 (Vértice 74)
+		X_GL(490), Y_GL(344), 0.0f, 1.0f, 1.0f, 1.0f, // 79 (Vértice 75)
+
+		// Polígono P
+		X_GL(297), Y_GL(330), 0.0f, 0.16f, 0.11f, 0.13f, // 80 (Vértice 76)
+		X_GL(271), Y_GL(329), 0.0f, 0.16f, 0.11f, 0.13f, // 81 (Vértice 77)
+		X_GL(295), Y_GL(282), 0.0f, 0.16f, 0.11f, 0.13f, // 82 (Vértice 78)
+		X_GL(405), Y_GL(322), 0.0f, 0.16f, 0.11f, 0.13f, // 83 (Vértice 79)
+		X_GL(360), Y_GL(362), 0.0f, 0.16f, 0.11f, 0.13f, // 84 (Vértice 80)
+		X_GL(295), Y_GL(364), 0.0f, 0.16f, 0.11f, 0.13f, // 85 (Vértice 81)
+		X_GL(271), Y_GL(329), 0.0f, 0.16f, 0.11f, 0.13f, // 86 (Vértice 82)
+		X_GL(297), Y_GL(330), 0.0f, 0.16f, 0.11f, 0.13f, // 87 (Vértice 83)
+		X_GL(310), Y_GL(347), 0.0f, 0.16f, 0.11f, 0.13f, // 88 (Vértice 84)
+		X_GL(369), Y_GL(347), 0.0f, 0.16f, 0.11f, 0.13f, // 89 (Vértice 85)
+		X_GL(374), Y_GL(330), 0.0f, 0.16f, 0.11f, 0.13f, // 90 (Vértice 86)
+		X_GL(319), Y_GL(315), 0.0f, 0.16f, 0.11f, 0.13f, // 91 (Vértice 87)
+
+		// Polígono Q
+		X_GL(472), Y_GL(326), 0.0f, 0.15f, 0.11f, 0.12f, // 92 (Vértice 88)
+		X_GL(436), Y_GL(326), 0.0f, 0.15f, 0.11f, 0.12f, // 93 (Vértice 89)
+		X_GL(529), Y_GL(279), 0.0f, 0.15f, 0.11f, 0.12f, // 94 (Vértice 90)
+		X_GL(561), Y_GL(323), 0.0f, 0.15f, 0.11f, 0.12f, // 95 (Vértice 91)
+		X_GL(514), Y_GL(371), 0.0f, 0.15f, 0.11f, 0.12f, // 96 (Vértice 92)
+		X_GL(436), Y_GL(326), 0.0f, 0.15f, 0.11f, 0.12f, // 97 (Vértice 93)
+		X_GL(472), Y_GL(326), 0.0f, 0.15, 0.11f, 0.12f, // 98 (Vértice 94)
+		X_GL(490), Y_GL(344), 0.0f, 0.15f, 0.11f, 0.12f, // 99 (Vértice 95)
+		X_GL(528), Y_GL(343), 0.0f, 0.15f, 0.11f, 0.12f, // 100 (Vértice 96)
+		X_GL(545), Y_GL(324), 0.0f, 0.15f, 0.11f, 0.12f, // 101 (Vértice 97)
+		X_GL(528), Y_GL(305), 0.0f, 0.15f, 0.11f, 0.12f, // 102 (Vértice 98)
+
+		// Polígono R Cambiar colores
+		X_GL(349), Y_GL(361), 0.0f, 0.15f, 0.11f, 0.12f, // 103 (Vértice 99)
+		X_GL(490), Y_GL(620), 0.0f, 0.15f, 0.11f, 0.12f, // 104 (Vértice 100)
+		X_GL(538), Y_GL(523), 0.0f, 0.15f, 0.11f, 0.12f, // 105 (Vértice 101)
+		X_GL(597), Y_GL(614), 0.0f, 0.15f, 0.11f, 0.12f, // 106 (Vértice 102)
+		X_GL(337), Y_GL(710), 0.0f, 0.15f, 0.11f, 0.12f, // 107 (Vértice 103)
+		X_GL(270), Y_GL(660), 0.0f, 0.15f, 0.11f, 0.12f, // 108 (Vértice 104)
+		X_GL(273), Y_GL(600), 0.0f, 0.15, 0.11f, 0.12f, // 109 (Vértice 105)
+		X_GL(235), Y_GL(472), 0.0f, 0.15f, 0.11f, 0.12f, // 110 (Vértice 106)
+
+		// Polígono S 
+		X_GL(564), Y_GL(631), 0.0f, 0.15f, 0.11f, 0.12f, // 111 (Vértice 107)
+		X_GL(329), Y_GL(791), 0.0f, 0.15, 0.11f, 0.12f, // 112 (Vértice 108)
+		X_GL(260), Y_GL(743), 0.0f, 0.15f, 0.11f, 0.12f, // 113 (Vértice 109)
 
 
 	};
 	//color negro metálico 0.15f, 0.15f, 0.18f
 	// color negro sombra 0.1f, 0.12f, 0.18f
-	// color negro mas sombra 0.22f, 0.22f, 0.22f
+	// color negro mas sombra 0.22f, 0.22f, 0.22f,
+	// color blanco ojos 1.0f, 1.0f, 1.0f
 	unsigned int indices[] = {
 		// POLÍGONO A (3 triángulos = 9 índices)
 		0, 1, 4,
@@ -239,9 +295,49 @@ int main() {
 		63, 65, 66,
 		66, 67, 68,
 		63, 66, 68,
-		68, 63, 69, 
-		69, 61, 63
-		
+		68, 63, 69,
+		69, 61, 63,
+
+		// POLÍGONO Ñ
+		70, 71, 72,
+		70, 72, 73,
+		70, 73, 74,
+
+		// POLÍGONO O
+		75, 76, 77,
+		75, 77, 78,
+		75, 78, 79,
+
+		// POLÍGONO P
+		80, 81, 82,
+		80, 91, 82,
+		82, 91, 83,
+		91, 83, 90,
+		83, 90, 84,
+		90, 89, 84,
+		84, 89, 85,
+		85, 89, 88,
+		85, 88, 87,
+		87, 85, 86,
+
+		// POLÍGONO Q
+		92, 93, 94,
+		92, 94, 102,
+		94, 102, 95,
+		95, 102, 101,
+		95, 101, 96,
+		96, 101, 100,
+		96, 100, 99,
+		96, 99, 97,
+		97, 99, 98,
+
+		// POLÍGONO R
+		103, 110, 109,
+		103, 109, 108,
+		103, 108, 107,
+		103, 104, 107,
+
+
 		
 
 	};
