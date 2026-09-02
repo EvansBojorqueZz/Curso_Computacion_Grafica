@@ -1,6 +1,6 @@
-//Previo 3
+//Práctica 3
 //Bojorquez Covarrubias Evans Martin
-//Fecha de entrega: 29 de Agosto del 2026
+//Fecha de entrega: 02 de Septiembre del 2026
 //No. de Cuenta: 321203018
 
 #include<iostream>
@@ -215,35 +215,66 @@ int main() {
 		// Render
 		// Clear the colorbuffer
 		glClearColor(1.0f, 1.0f, 1.0f, 1.0f);
-		glClear(GL_COLOR_BUFFER_BIT| GL_DEPTH_BUFFER_BIT);
+		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
 
-		// Draw our first triangle
+		// Cubo E (1)
 		ourShader.Use();
-		glm::mat4 model=glm::mat4(1);
-		glm::mat4 view=glm::mat4(1);
-	
-		view = glm::translate(view, glm::vec3(0.0f,0.0f,-12.0f));
-		model = glm::rotate( model, 0.5f, glm::vec3( 5.0f, 8.0f, 3.0f ) ); // use to compare orthographic and perspective projection
-		model = glm::scale(model, glm::vec3(2.0f, 3.0f, 1.0f));
+		glm::mat4 model = glm::mat4(1);
+		glm::mat4 view = glm::mat4(1);
+
+		view = glm::translate(view, glm::vec3(3.0f, 0.0f, -12.0f));
+		model = glm::rotate(model, glm::radians(20.0f), glm::vec3(1.0f, 0.0f, 0.0f)); // inclina en X para ver la tapa
+		model = glm::rotate(model, glm::radians(30.0f), glm::vec3(0.0f, 1.0f, 0.0f)); // gira en Y 45 
+		model = glm::scale(model, glm::vec3(2.0f, 2.0f, 2.0f));
 		//view = glm::translate( view, glm::vec3( screenWidth / 2, screenHeight / 5,-750.0f ) ); // use with orthographic projection
-		
+
 		GLint modelLoc = glGetUniformLocation(ourShader.Program, "model");
 		GLint viewLoc = glGetUniformLocation(ourShader.Program, "view");
 		GLint projecLoc = glGetUniformLocation(ourShader.Program, "projection");
-		
+
 		glUniformMatrix4fv(projecLoc, 1, GL_FALSE, glm::value_ptr(projection));
 		glUniformMatrix4fv(viewLoc, 1, GL_FALSE, glm::value_ptr(view));
 		glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(model));
-		
-		//Creación y modificación del segundo cubo
 		glBindVertexArray(VAO);
 		glDrawArrays(GL_TRIANGLES, 0, 36);
+
+		//Cubo V (2)
 		model = glm::mat4(1);
-		model = glm::translate(model, glm::vec3(5.0f, 0.0f, 0.0f));
-		model = glm::rotate(model, 0.5f, glm::vec3(3.0f, 8.0f, 5.0f)); // use to compare orthographic and perspective projection
-		model = glm::scale(model, glm::vec3(1.0f, 3.0f, 2.0f));
-		glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(model));
+		model = glm::translate(model, glm::vec3(-4.5f, 0.0f, 0.0f)); // mueve el CUBO a la izquierda
+		model = glm::rotate(model, glm::radians(20.0f), glm::vec3(1.0f, 0.0f, 0.0f));
+		model = glm::rotate(model, glm::radians(230.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+		model = glm::scale(model, glm::vec3(2.0f, 2.0f, 2.0f));
+		glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(model)); // reutiliza modelLoc, ya lo tienes
+		glDrawArrays(GL_TRIANGLES, 0, 36);
+
+		//Cubo A (3)
+		model = glm::mat4(1);
+		model = glm::translate(model, glm::vec3(-2.5f, 1.8f, 0.0f)); // Mueves a izquierda y subimos 
+		model = glm::rotate(model, glm::radians(20.0f), glm::vec3(1.0f, 0.0f, 0.0f));
+		model = glm::rotate(model, glm::radians(230.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+		model = glm::rotate(model, glm::radians(45.0f), glm::vec3(0.0f, 0.0f, 0.1f));
+		model = glm::scale(model, glm::vec3(1.8f, 1.8f, 1.8f));
+		glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(model)); // reutiliza modelLoc, ya lo tienes
+		glDrawArrays(GL_TRIANGLES, 0, 36);
+
+
+		//Cubo N (4)
+		model = glm::mat4(1);
+		model = glm::translate(model, glm::vec3(-4.3f, 3.5f, 0.0f)); // Mueves a izquierda y subimos 
+		model = glm::rotate(model, glm::radians(0.0f), glm::vec3(0.0f, 1.0f, 0.0f)); //eje Y
+		model = glm::rotate(model, glm::radians(50.0f), glm::vec3(0.0f, 0.0f, 1.0f)); //eje X
+		model = glm::scale(model, glm::vec3(1.5f, 1.5f, 1.5f));
+		glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(model)); // reutiliza modelLoc, ya lo tienes
+		glDrawArrays(GL_TRIANGLES, 0, 36);
+
+		//Cubo S (5)
+		model = glm::mat4(1);
+		model = glm::translate(model, glm::vec3(-4.3f, 3.5f, 0.0f)); // Mueves a izquierda y subimos 
+		model = glm::rotate(model, glm::radians(0.0f), glm::vec3(0.0f, 1.0f, 0.0f)); //eje Y
+		model = glm::rotate(model, glm::radians(50.0f), glm::vec3(0.0f, 0.0f, 1.0f)); //eje X
+		model = glm::scale(model, glm::vec3(1.5f, 1.5f, 1.5f));
+		glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(model)); // reutiliza modelLoc, ya lo tienes
 		glDrawArrays(GL_TRIANGLES, 0, 36);
 
 
