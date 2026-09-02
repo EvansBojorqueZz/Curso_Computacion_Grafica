@@ -261,21 +261,21 @@ int main() {
 
 		//Cubo N (4)
 		model = glm::mat4(1);
-		model = glm::translate(model, glm::vec3(-4.3f, 3.5f, 0.0f)); // Mueves a izquierda y subimos 
+		model = glm::translate(model, glm::vec3(-4.3f, 3.5f, 0.0f)); 
 		model = glm::rotate(model, glm::radians(0.0f), glm::vec3(0.0f, 1.0f, 0.0f)); //eje Y
-		model = glm::rotate(model, glm::radians(50.0f), glm::vec3(0.0f, 0.0f, 1.0f)); //eje X
+		model = glm::rotate(model, glm::radians(50.0f), glm::vec3(0.0f, 0.0f, 1.0f)); //eje Z
 		model = glm::scale(model, glm::vec3(1.5f, 1.5f, 1.5f));
-		glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(model)); // reutiliza modelLoc, ya lo tienes
+		glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(model)); 
 		glDrawArrays(GL_TRIANGLES, 0, 36);
 
 		//Cubo S (5)
-		//model = glm::mat4(1);
-		//model = glm::translate(model, glm::vec3(-4.3f, 3.5f, 0.0f)); // Mueves a izquierda y subimos 
-		//model = glm::rotate(model, glm::radians(0.0f), glm::vec3(0.0f, 1.0f, 0.0f)); //eje Y
-		//model = glm::rotate(model, glm::radians(50.0f), glm::vec3(0.0f, 0.0f, 1.0f)); //eje X
-		//model = glm::scale(model, glm::vec3(1.5f, 1.5f, 1.5f));
-		//glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(model)); // reutiliza modelLoc, ya lo tienes
-		//glDrawArrays(GL_TRIANGLES, 0, 36);
+		model = glm::mat4(1);
+		model = glm::translate(model, glm::vec3(-0.5f, 3.5f, 0.0f)); 
+		model = glm::rotate(model, glm::radians(180.0f), glm::vec3(0.0f, 1.0f, 0.0f)); //eje Y
+		model = glm::rotate(model, glm::radians(-80.0f), glm::vec3(0.0f, 0.0f, 1.0f)); //eje Z
+		model = glm::scale(model, glm::vec3(1.5f, 1.5f, 1.5f));
+		glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(model)); 
+		glDrawArrays(GL_TRIANGLES, 0, 36);
 
 
 		glBindVertexArray(0);
