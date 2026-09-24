@@ -1,6 +1,6 @@
-// Previo #6
+// Practica #6
 // Bojorquez Covarrubias Evans Martin
-// Fecha de entrega: 16 de septiembre del 2026
+// Fecha de entrega: 23 de septiembre del 2026
 // 321203018
 
 
@@ -39,7 +39,7 @@ void DoMovement();
 
 
 // Camera
-Camera camera(glm::vec3(0.0f, 0.0f, 3.0f));
+Camera camera(glm::vec3(0.0f, 0.7f, 3.0f));
 bool keys[1024];
 GLfloat lastX = 400, lastY = 300;
 bool firstMouse = true;
@@ -104,15 +104,23 @@ int main()
 
     // OpenGL options
     glEnable(GL_DEPTH_TEST);
+    glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
 
     // Setup and compile our shaders
     Shader shader("Shader/modelLoading.vs", "Shader/modelLoading.frag");
 
     // Load models
+    // PERRITO
     Model dog((char*)"Models/RedDog.obj");
     glm::mat4 projection = glm::perspective(camera.GetZoom(), (float)SCREEN_WIDTH / (float)SCREEN_HEIGHT, 0.1f, 100.0f);
+    // PINTURAS
+    Model pintura1((char*)"Models/Pintura1/pintura1.obj");
+    Model pintura2((char*)"Models/Pintura2/pintura2.obj");
 
-
+	// CABALLETE, PINCEL Y PALETA
+    Model caballete((char*)"Models/Caballete/caballete.obj");
+    Model pincel((char*)"Models/Pincel/pincel.obj");
+    Model paleta((char*)"Models/Paleta/paleta.obj");
 
     // Game loop
     while (!glfwWindowShouldClose(window))
@@ -136,16 +144,52 @@ int main()
         glUniformMatrix4fv(glGetUniformLocation(shader.Program, "projection"), 1, GL_FALSE, glm::value_ptr(projection));
         glUniformMatrix4fv(glGetUniformLocation(shader.Program, "view"), 1, GL_FALSE, glm::value_ptr(view));
 
-        // Draw the loaded model
+        GLint modelLoc = glGetUniformLocation(shader.Program, "model");
         glm::mat4 model(1);
-        model = glm::translate(model, glm::vec3(0.0f, dogY, 0.0f));   // subir/bajar el perro
-        glUniformMatrix4fv(glGetUniformLocation(shader.Program, "model"), 1, GL_FALSE, glm::value_ptr(model));
+
+        // Perrito (al centro)
+        model = glm::mat4(1);
+        model = glm::translate(model, glm::vec3(-0.2f, dogY, 0.5f));
+        glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(model));
         dog.Draw(shader);
 
-		model = glm::translate(model, glm::vec3(3.0f, 0.0f, 0.0f)); // Mover el perro a la derecha
-		model = glm::scale(model, glm::vec3(2.0f, 2.0f, 2.0f)); // Escalar el perro 
-        glUniformMatrix4fv(glGetUniformLocation(shader.Program, "model"), 1, GL_FALSE, glm::value_ptr(model));
-        dog.Draw(shader);
+        // Pintura 1 (horizontal, colgada al fondo a la derecha)
+        model = glm::mat4(1);
+        model = glm::translate(model, glm::vec3(0.8f, 0.6f, -1.5f));
+        model = glm::scale(model, glm::vec3(0.00025f));
+        glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(model));
+        pintura1.Draw(shader);
+
+        // Pintura 2 (vertical, colgada al fondo a la izquierda)
+        model = glm::mat4(1);
+        model = glm::translate(model, glm::vec3(-0.4f, 0.5f, -1.5f));
+        model = glm::scale(model, glm::vec3(0.006f));
+        glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(model));
+        pintura2.Draw(shader);
+
+        // Caballete (a la izquierda, girado para mirar a la camara)
+        model = glm::mat4(1);
+        model = glm::translate(model, glm::vec3(-1.3f, 0.0f, -0.3f));
+        model = glm::rotate(model, glm::radians(-90.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+        model = glm::scale(model, glm::vec3(0.5f));
+        glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(model));
+        caballete.Draw(shader);
+
+        // Paleta (en el piso, junto al caballete)
+        model = glm::mat4(1);
+        model = glm::translate(model, glm::vec3(-0.7f, 0.0f, 0.6f));
+        model = glm::rotate(model, glm::radians(-25.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+        model = glm::scale(model, glm::vec3(0.004f));
+        glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(model));
+        paleta.Draw(shader);
+
+        // Pincel (en el piso, junto a la paleta)
+        model = glm::mat4(1);
+        model = glm::translate(model, glm::vec3(-0.35f, 0.0f, 0.9f));
+        model = glm::rotate(model, glm::radians(35.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+        model = glm::scale(model, glm::vec3(0.12f));
+        glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(model));
+        pincel.Draw(shader);
 
         // Swap the buffers
         glfwSwapBuffers(window);
