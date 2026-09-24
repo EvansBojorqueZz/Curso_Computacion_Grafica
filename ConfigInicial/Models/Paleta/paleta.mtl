@@ -1,0 +1,63 @@
+newmtl madera
+Ka 1.0 1.0 1.0
+Kd 1.0 1.0 1.0
+Ks 0.2 0.2 0.2
+Ns 40
+d 1
+illum 2
+map_Kd madera.jpg
+
+newmtl amarillo
+Ka 1.0 1.0 1.0
+Kd 1.0 1.0 1.0
+Ks 0.5 0.5 0.5
+Ns 40
+d 1
+illum 2
+map_Kd amarillo.jpg
+
+newmtl rojo
+Ka 1.0 1.0 1.0
+Kd 1.0 1.0 1.0
+Ks 0.5 0.5 0.5
+Ns 40
+d 1
+illum 2
+map_Kd rojo.jpg
+
+newmtl negro
+Ka 1.0 1.0 1.0
+Kd 1.0 1.0 1.0
+Ks 0.5 0.5 0.5
+Ns 40
+d 1
+illum 2
+map_Kd negro.jpg
+
+newmtl azul
+Ka 1.0 1.0 1.0
+Kd 1.0 1.0 1.0
+Ks 0.5 0.5 0.5
+Ns 40
+d 1
+illum 2
+map_Kd azul.jpg
+
+newmtl blanco
+Ka 1.0 1.0 1.0
+Kd 1.0 1.0 1.0
+Ks 0.5 0.5 0.5
+Ns 40
+d 1
+illum 2
+map_Kd blanco.jpg
+
+newmtl verde
+Ka 1.0 1.0 1.0
+Kd 1.0 1.0 1.0
+Ks 0.5 0.5 0.5
+Ns 40
+d 1
+illum 2
+map_Kd verde.jpg
+

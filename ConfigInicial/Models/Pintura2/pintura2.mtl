@@ -1,0 +1,45 @@
+newmtl marco
+Ka 1.0 1.0 1.0
+Kd 1.0 1.0 1.0
+Ks 0.3 0.3 0.3
+Ns 32
+d 1
+illum 2
+map_Kd marco.jpg
+
+newmtl lienzo
+Ka 1.0 1.0 1.0
+Kd 1.0 1.0 1.0
+Ks 0.3 0.3 0.3
+Ns 32
+d 1
+illum 2
+map_Kd pintura.jpg
+
+newmtl paspartu
+Ka 1.0 1.0 1.0
+Kd 1.0 1.0 1.0
+Ks 0.3 0.3 0.3
+Ns 32
+d 1
+illum 2
+map_Kd blanco.jpg
+
+newmtl madera
+Ka 1.0 1.0 1.0
+Kd 1.0 1.0 1.0
+Ks 0.3 0.3 0.3
+Ns 32
+d 1
+illum 2
+map_Kd madera.jpg
+
+newmtl metal
+Ka 1.0 1.0 1.0
+Kd 1.0 1.0 1.0
+Ks 0.3 0.3 0.3
+Ns 32
+d 1
+illum 2
+map_Kd metal.jpg
+
