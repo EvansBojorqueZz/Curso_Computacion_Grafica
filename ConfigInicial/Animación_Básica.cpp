@@ -1,6 +1,6 @@
-//Previo 10
+//Practica 10
 //Bojorquez Covarrubias Evans Martin
-//Fecha de entrega: 17 de octubre de 2026
+//Fecha de entrega: 21 de octubre de 2026
 //321203018
 
 #include <iostream>
@@ -50,7 +50,7 @@ const GLuint WIDTH = 800, HEIGHT = 600;
 int SCREEN_WIDTH, SCREEN_HEIGHT;
 
 // Camera
-Camera  camera(glm::vec3(0.0f, 0.0f, 3.0f));
+Camera  camera(glm::vec3(0.0f, 0.8f, 5.0f));   // mas atras para ver todo el circulo
 GLfloat lastX = WIDTH / 2.0;
 GLfloat lastY = HEIGHT / 2.0;
 bool keys[1024];
@@ -115,14 +115,51 @@ float vertices[] = {
 
 glm::vec3 Light1 = glm::vec3(0);
 //Anim
-bool AnimBall = false;
+bool AnimBall = false;                // N inicia o pausa la animacion
+GLfloat animTime = 0.0f;              // tiempo que lleva corriendo la animacion (segundos)
 
-// Animacion de la pelota: sube desde la nariz del perro hasta la altura de la luz y regresa
-GLfloat ballY = 0.0f;                 // altura actual del centro de la pelota
-GLfloat ballDir = 1.0f;               // 1 = sube, -1 = baja
-GLfloat noseY = 0.0f;                 // altura de la nariz del perro (limite inferior)
-const GLfloat BALL_SPEED = 0.8f;      // unidades por segundo
-const GLfloat NOSE_HEIGHT = 0.78f;    // la nariz esta al 78% de la altura del perro (medida desde sus patas)
+// PELOTA SIMULANDO GLOBO
+const GLfloat BALLOON_PATH_RADIUS = 2.0f;   // radio del circulo que recorre
+const GLfloat BALLOON_ANG_SPEED = 40.0f;    // grados por segundo (positivo = antihorario visto desde arriba)
+GLfloat balloonBaseY = 0.95f;               // altura media a la que flota (se calcula en main para que pase sobre el perro)
+const GLfloat BALLOON_CLEARANCE = 0.05f;    // espacio libre entre el globo (en su punto mas bajo) y la cabeza del perro
+const GLfloat BALLOON_BOB_AMP = 0.20f;      // cuanto sube y baja al flotar
+const GLfloat BALLOON_BOB_FREQ = 0.5f;      // oscilaciones de flotacion por segundo (una subida y bajada cada 2 s)
+GLfloat balloonAngle = 0.0f;                // angulo actual sobre el circulo (grados)
+glm::vec3 balloonPos(BALLOON_PATH_RADIUS, 0.95f, 0.0f);   // posicion del centro del globo
+
+// ANIMACIÓN DE PERRO
+const GLfloat DOG_PATH_RADIUS = 2.0f;      // radio del circulo que recorre
+const GLfloat DOG_ANG_SPEED = -30.0f;      // grados por segundo (negativo = sentido contrario al globo)
+GLfloat dogAngle = 180.0f;                 // angulo actual sobre el circulo (grados), inicia frente al globo
+glm::vec3 dogPos(-DOG_PATH_RADIUS, 0.0f, 0.0f);   // posicion del perro sobre el piso
+GLfloat dogYaw = 180.0f;                   // giro en Y para que mire hacia donde camina (grados)
+
+// SIMULACIÓN SALTO DEL PERRO
+enum DogState { CAMINANDO, PREPARACION, SALTO };
+DogState dogState = CAMINANDO;
+GLfloat stateTime = 0.0f;                  // tiempo que lleva el perro en el estado actual
+const GLfloat PREP_TIME = 0.35f;           // segundos que dura agachandose
+const GLfloat JUMP_UP_TIME = 0.35f;        // segundos que tarda en llegar a lo mas alto (bajar tarda lo mismo)
+GLfloat jumpGravity = 9.8f;                // gravedad del salto: se calcula para que suba justo hasta el globo
+GLfloat dogJumpY = 0.0f;                   // altura del perro sobre el piso durante el salto
+GLfloat dogVelY = 0.0f;                    // velocidad vertical del perro
+GLfloat dogScaleY = 1.0f;                  // aplastamiento en Y al agacharse
+GLfloat dogScaleXZ = 1.0f;                 // ensanchamiento en X y Z al agacharse
+GLfloat dogFeetY = 0.0f;                   // altura de las patas del modelo (punto de apoyo para agacharse)
+GLfloat noseRestY = 0.0f;                  // altura del hocico con el perro parado en el piso
+GLfloat balloonRadius = 0.1f;              // radio del globo (se mide en main)
+GLfloat jumpTriggerGap = 60.0f;            // separacion angular a la que empieza a prepararse (se calcula en main)
+glm::vec3 noseLocalPos(0.0f);              // hocico en coordenadas del modelo del perro (se mide en main)
+
+// SIMULACIÓN GLOBO RECIBIENDO IMPULSO
+const GLfloat BALLOON_IMPULSE = 3.0f;      // velocidad hacia arriba que le da el golpe (unidades/s)
+const GLfloat BALLOON_LIFT_DECEL = 4.0f;   // desaceleracion que lo regresa a su altura normal (unidades/s^2)
+GLfloat balloonLift = 0.0f;                // altura extra por el impulso
+GLfloat balloonLiftVel = 0.0f;             // velocidad vertical extra por el impulso
+bool hitThisJump = false;                  // evita dar mas de un impulso en el mismo salto
+
+const GLfloat NOSE_HEIGHT = 0.78f;    // la nariz esta al 78% de la altura del perro (se usara para la colision, se calculó en el previo)
 
 
 // Deltatime
@@ -160,7 +197,8 @@ int main()
 	glfwSetCursorPosCallback(window, MouseCallback);
 
 	// GLFW Options
-	//glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+	// El mouse queda dentro de la ventana (oculto) para mover la camara libremente; ESC cierra el programa
+	glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
 
 	// Set this to true so GLEW knows to use a modern approach to retrieving function pointers and extensions
 	glewExperimental = GL_TRUE;
@@ -184,21 +222,35 @@ int main()
 	Model Piso((char*)"Models/piso.obj");
 	Model Ball((char*)"Models/ball.obj");
 
-	// Medidas reales de los modelos para colocar la pelota frente a la nariz del perro
+	// Medidas reales de los modelos (a partir de sus vertices)
 	Bounds bDog = GetOBJBounds("Models/RedDog.obj");
 	Bounds bBall = GetOBJBounds("Models/ball.obj");
 	glm::vec3 dogSize = bDog.max - bDog.min;
 	glm::vec3 ballCenterLocal = (bBall.min + bBall.max) * 0.5f;   // el modelo no esta centrado en el origen
 	GLfloat ballRadius = (bBall.max.y - bBall.min.y) * 0.5f;
 
-	// Nariz: al centro del perro en X, a NOSE_HEIGHT de su altura y en su punto mas al frente (+Z)
-	glm::vec3 nose((bDog.min.x + bDog.max.x) * 0.5f, bDog.min.y + dogSize.y * NOSE_HEIGHT, bDog.max.z);
-	noseY = nose.y;
-	ballY = noseY;
-	// La pelota sube y baja justo enfrente de la nariz (su borde trasero toca la nariz)
-	GLfloat ballX = nose.x;
-	GLfloat ballZ = nose.z + ballRadius - 0.01f;   // la acerca a la nariz
-	std::cout << "Nariz del perro en y = " << noseY << " | Luz en y = " << pointLightPositions[0].y << std::endl;
+	// Hocico del perro en sus coordenadas locales: centro en X, punto mas al frente en Z (se usara para la colision)
+	glm::vec3 noseLocal((bDog.min.x + bDog.max.x) * 0.5f, bDog.min.y + dogSize.y * NOSE_HEIGHT, bDog.max.z);
+	std::cout << "Radio del globo: " << ballRadius << " | Hocico del perro en y = " << noseLocal.y << std::endl;
+	dogFeetY = bDog.min.y;
+	noseRestY = noseLocal.y;
+	noseLocalPos = noseLocal;
+	balloonRadius = ballRadius;
+
+	// Altura media del globo: su punto mas bajo (centro - amplitud - radio) queda arriba de la cabeza del perro
+	balloonBaseY = bDog.max.y + BALLOON_CLEARANCE + ballRadius + BALLOON_BOB_AMP;
+	balloonPos.y = balloonBaseY;
+	std::cout << "El globo flota entre y = " << balloonBaseY - BALLOON_BOB_AMP << " y y = " << balloonBaseY + BALLOON_BOB_AMP << std::endl;
+
+	// El salto se dispara con anticipacion: el tiempo de agacharse mas el de subir hasta lo mas alto,
+	// multiplicado por la rapidez con que se acercan (suma de ambas velocidades angulares), mas el angulo
+	// entre el centro del perro y el centro del globo cuando el hocico lo toca.
+	GLfloat timeToApex = PREP_TIME + JUMP_UP_TIME;
+	GLfloat closingSpeed = fabs(BALLOON_ANG_SPEED) + fabs(DOG_ANG_SPEED);   // grados por segundo
+	GLfloat contactGap = glm::degrees((noseLocal.z + 0.7f * ballRadius) / DOG_PATH_RADIUS);
+	jumpTriggerGap = closingSpeed * timeToApex + contactGap;
+	std::cout << "El perro se prepara para saltar cuando el globo esta a " << jumpTriggerGap << " grados" << std::endl;
+	std::cout << "Controles: N = iniciar/pausar animacion | ESPACIO = luz puntual | ESC = salir" << std::endl;
 
 
 
@@ -322,7 +374,14 @@ int main()
 		glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(model));
 		Piso.Draw(lightingShader);
 
+		// Perro: se traslada a su punto del circulo y se gira para mirar en la direccion en que camina
 		model = glm::mat4(1);
+		model = glm::translate(model, dogPos + glm::vec3(0.0f, dogJumpY, 0.0f));   // dogJumpY = altura del salto
+		model = glm::rotate(model, glm::radians(dogYaw), glm::vec3(0.0f, 1.0f, 0.0f));
+		// Aplastamiento al agacharse: se escala respecto a las patas para que no se hunda en el piso
+		model = glm::translate(model, glm::vec3(0.0f, dogFeetY, 0.0f));
+		model = glm::scale(model, glm::vec3(dogScaleXZ, dogScaleY, dogScaleXZ));
+		model = glm::translate(model, glm::vec3(0.0f, -dogFeetY, 0.0f));
 		glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(model));
 		glUniform1i(glGetUniformLocation(lightingShader.Program, "transparency"), 0);
 		Dog.Draw(lightingShader);
@@ -332,8 +391,8 @@ int main()
 		glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 		glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(model));
 		glUniform1i(glGetUniformLocation(lightingShader.Program, "transparency"), 1);
-		// Traslacion en Y: la pelota se mueve verticalmente entre la nariz del perro y la altura de la luz
-		model = glm::translate(model, glm::vec3(ballX, ballY, ballZ));
+		// Globo: se traslada a su posicion sobre el circulo (balloonPos se calcula en Animation)
+		model = glm::translate(model, balloonPos);
 		model = glm::translate(model, -ballCenterLocal);   // centra el modelo para moverlo desde su centro
 		glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(model));
 		Ball.Draw(lightingShader);
@@ -482,26 +541,127 @@ void KeyCallback(GLFWwindow* window, int key, int scancode, int action, int mode
 	}
 }
 void Animation() {
-	if (AnimBall)
-	{
-		// Se multiplica por deltaTime para que la velocidad no dependa de los FPS
-		ballY += ballDir * BALL_SPEED * deltaTime;
+	if (!AnimBall) return;
 
-		// Limite superior: la altura de la fuente de luz (si se mueve la luz con Y/H, el limite la sigue)
-		GLfloat topY = pointLightPositions[0].y;
-		if (ballY >= topY)
+	animTime += deltaTime;
+
+	// ---------- Trayectoria del globo ----------
+	// Avanza sobre el circulo en sentido positivo (angulo creciente)
+	balloonAngle += BALLOON_ANG_SPEED * deltaTime;
+	if (balloonAngle >= 360.0f) balloonAngle -= 360.0f;
+
+	// Punto del circulo: es (R, 0, 0) girado balloonAngle grados sobre el eje Y
+	GLfloat a = glm::radians(balloonAngle);
+	balloonPos.x = BALLOON_PATH_RADIUS * cos(a);
+	balloonPos.z = -BALLOON_PATH_RADIUS * sin(a);
+
+	// Flotacion: sube y baja con una onda seno alrededor de su altura media
+	// Impulso: la altura extra sube con la velocidad del golpe y la desaceleracion lo regresa a flotar
+	if (balloonLift > 0.0f || balloonLiftVel > 0.0f)
+	{
+		balloonLiftVel -= BALLOON_LIFT_DECEL * deltaTime;
+		balloonLift += balloonLiftVel * deltaTime;
+		if (balloonLift <= 0.0f)
 		{
-			ballY = topY;
-			ballDir = -1.0f;   // cambia de direccion: ahora baja
+			balloonLift = 0.0f;
+			balloonLiftVel = 0.0f;
 		}
-		// Limite inferior: la nariz del perro
-		if (ballY <= noseY)
-		{
-			ballY = noseY;
-			ballDir = 1.0f;    // cambia de direccion: ahora sube
-		}
-		//printf("%f\n", ballY);
 	}
+	balloonPos.y = balloonBaseY + BALLOON_BOB_AMP * sin(animTime * BALLOON_BOB_FREQ * 2.0f * glm::pi<float>()) + balloonLift;
+
+	// ---------- Trayectoria del perro ----------
+	// Avanza sobre su circulo en sentido negativo (angulo decreciente)
+	dogAngle += DOG_ANG_SPEED * deltaTime;
+	if (dogAngle < 0.0f) dogAngle += 360.0f;
+
+	GLfloat b = glm::radians(dogAngle);
+	dogPos.x = DOG_PATH_RADIUS * cos(b);
+	dogPos.z = -DOG_PATH_RADIUS * sin(b);
+
+	// Orientacion: al recorrer el circulo con angulo decreciente, la direccion de avance es (sin b, 0, cos b).
+	// El modelo del perro mira hacia +Z, asi que basta girarlo en Y el mismo angulo b para que mire hacia adelante.
+	dogYaw = dogAngle;
+
+	// ---------- Preparacion y salto ----------
+	// Separacion angular entre perro y globo: se reduce a medida que se acercan de frente
+	GLfloat gap = fmod(dogAngle - balloonAngle + 720.0f, 360.0f);
+	stateTime += deltaTime;
+
+	switch (dogState)
+	{
+	case CAMINANDO:
+		dogScaleY = 1.0f;
+		dogScaleXZ = 1.0f;
+		// Cuando el globo esta por pasar frente a el, empieza a prepararse
+		if (gap < jumpTriggerGap)
+		{
+			dogState = PREPARACION;
+			stateTime = 0.0f;
+		}
+		break;
+
+	case PREPARACION:
+	{
+		// Se agacha poco a poco: hasta 25% mas bajo y 10% mas ancho
+		GLfloat p = glm::min(stateTime / PREP_TIME, 1.0f);
+		dogScaleY = 1.0f - 0.25f * p;
+		dogScaleXZ = 1.0f + 0.10f * p;
+		if (stateTime >= PREP_TIME)
+		{
+			// Altura que tendra el globo cuando el perro llegue a lo mas alto del salto
+			GLfloat tApex = animTime + JUMP_UP_TIME;
+			GLfloat balloonApexY = balloonBaseY + BALLOON_BOB_AMP * sin(tApex * BALLOON_BOB_FREQ * 2.0f * glm::pi<float>());
+			// Altura que debe subir para que la punta del hocico toque el globo por abajo y al frente
+			// (0.7 r abajo y 0.7 r al frente del centro: la distancia queda casi igual al radio, solo lo roza)
+			GLfloat h = balloonApexY - 0.7f * balloonRadius - noseRestY;
+			if (h < 0.1f) h = 0.1f;
+			// Con un tiempo de subida fijo: h = v0*t - g*t^2/2 y v0 = g*t  ->  g = 2h/t^2, v0 = 2h/t
+			jumpGravity = 2.0f * h / (JUMP_UP_TIME * JUMP_UP_TIME);
+			dogVelY = 2.0f * h / JUMP_UP_TIME;   // impulso hacia arriba
+			dogState = SALTO;
+			stateTime = 0.0f;
+		}
+		break;
+	}
+
+	case SALTO:
+	{
+		// Sube y baja: la gravedad frena la subida y luego lo hace caer
+		dogVelY -= jumpGravity * deltaTime;
+		dogJumpY += dogVelY * deltaTime;
+
+		// ---------- Colision hocico - globo ----------
+		// Posicion real del hocico: se gira con el perro (dogYaw) y se traslada a su posicion actual
+		glm::mat4 dogModel(1);
+		dogModel = glm::translate(dogModel, dogPos + glm::vec3(0.0f, dogJumpY, 0.0f));
+		dogModel = glm::rotate(dogModel, glm::radians(dogYaw), glm::vec3(0.0f, 1.0f, 0.0f));
+		glm::vec3 noseWorld = glm::vec3(dogModel * glm::vec4(noseLocalPos, 1.0f));
+		// Hay colision cuando la punta del hocico llega a la superficie del globo
+		if (!hitThisJump && glm::distance(noseWorld, balloonPos) <= balloonRadius * 1.05f)
+		{
+			hitThisJump = true;
+			balloonLiftVel = BALLOON_IMPULSE;   // el perro lo impulsa hacia arriba
+			balloonLift = glm::max(balloonLift, 0.001f);
+			std::cout << "Colision! El perro impulsa el globo" << std::endl;
+		}
+
+		// Recupera su forma normal al despegar
+		dogScaleY = 1.0f;
+		dogScaleXZ = 1.0f;
+		if (dogJumpY <= 0.0f)
+		{
+			// Toca el piso y sigue caminando
+			dogJumpY = 0.0f;
+			dogVelY = 0.0f;
+			dogState = CAMINANDO;
+			stateTime = 0.0f;
+			hitThisJump = false;
+		}
+		break;
+	}
+	}
+
+	//printf("Globo: angulo %.1f  pos (%.2f, %.2f, %.2f)\n", balloonAngle, balloonPos.x, balloonPos.y, balloonPos.z);
 }
 
 // Lee los vertices ("v x y z") de un archivo .obj y regresa su caja envolvente
