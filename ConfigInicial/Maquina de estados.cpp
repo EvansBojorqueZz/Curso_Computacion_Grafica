@@ -1,5 +1,5 @@
-//Previo 11
-//Fecha de entrega: 23 de octubre de 2026
+//Practica 11
+//Fecha de entrega: 28 de octubre de 2026
 //Bojorquez Covarrubias Evans Martin
 //321203018
 
@@ -37,6 +37,25 @@ void MouseCallback(GLFWwindow* window, double xPos, double yPos);
 void DoMovement();
 void Animation();
 float GetMaxZ(const char* path);
+
+// Caja que envuelve a un modelo (minimo y maximo de sus vertices)
+struct Bounds
+{
+	glm::vec3 min;
+	glm::vec3 max;
+};
+Bounds GetOBJBounds(const char* path);
+
+// Animaciones del perro
+void StepLegs(float rate, float amp); // ciclo de pasos (patas, cabeza y cola) a 'rate' grados por segundo y amplitud 'amp'
+float YawTowards(glm::vec3 from, glm::vec3 to);   // angulo en Y para mirar de 'from' hacia 'to'
+float AngDiff(float from, float to);  // diferencia angular mas corta (-180 a 180)
+glm::vec3 DirFromYaw(float yaw);      // direccion hacia la que mira el perro con ese giro
+void BuildPath();                     // arma la trayectoria (rectas y curvas) a partir de los puntos
+void Recorrido();                     // avanza al perro sobre la trayectoria y llama a la animacion que toca
+void Caminar(float s);                // animacion de caminar en linea recta
+void GiroIzquierda(float s);          // animacion de dar la vuelta a la izquierda (curva)
+void GiroDerecha(float s);            // animacion de dar la vuelta a la derecha (curva)
 
 // Window dimensions
 const GLuint WIDTH = 800, HEIGHT = 600;
@@ -123,6 +142,46 @@ float floorLimitZ = 0.0f;   // hasta donde puede avanzar el cuerpo del perro
 bool step = false;
 bool pauseAnim = false;
 
+// ---------------- TRAYECTORIA ----------------
+// Puntos del recorrido (se calculan en main a partir del tamano real del piso)
+enum Punto { P_E, P_A, P_B, P_C, P_D };
+glm::vec3 puntos[5];
+
+// La trayectoria E -> A -> B -> C -> D -> E se arma con tramos rectos (caminar) y tramos curvos
+// (dar la vuelta). En cada esquina, en lugar de girar en su lugar, el perro sigue caminando sobre
+// un arco de circulo que une las dos rectas, como lo haria un perro real al dar la vuelta.
+enum TipoTramo { RECTA, CURVA_IZQ, CURVA_DER };
+struct Tramo
+{
+	TipoTramo tipo;
+	float largo;           // longitud del tramo
+	glm::vec3 inicio;      // RECTA: punto inicial
+	glm::vec3 dir;         // RECTA: direccion | CURVA: direccion al entrar a la curva
+	float yawInicio;       // giro del perro al entrar al tramo
+	glm::vec3 centro;      // CURVA: centro del arco
+	float radio;           // CURVA: radio del arco
+	float angulo;          // CURVA: grados que gira (siempre positivo)
+};
+Tramo tramos[16];
+int numTramos = 0;
+float largoTotal = 0.0f;     // longitud total del recorrido
+float sRecorrido = 0.0f;     // distancia recorrida sobre la trayectoria
+int tramoActual = 0;
+float velFactor = 0.0f;      // velocidad actual como fraccion de WALK_SPEED (suaviza los cambios)
+
+// Parametros de la animacion
+const float WALK_SPEED = 0.45f;      // velocidad de caminata en recta (unidades/s)
+const float TURN_SPEED = 0.30f;      // velocidad al dar la vuelta (mas lenta para que la curva sea limpia)
+const float ACCEL_TIME = 0.6f;       // segundos para pasar de detenido a velocidad normal
+const float DECEL_DIST = 0.40f;      // distancia antes del final en la que empieza a frenar
+const float LEG_SPEED = 75.0f;       // velocidad del ciclo de pasos (grados/s) a velocidad normal
+const float LEG_AMP = 15.0f;         // amplitud del paso al caminar (grados)
+const float TURN_LEG_AMP = 11.0f;    // pasos un poco mas cortos en la curva (grados)
+const float TURN_RADIUS = 0.35f;     // radio de las curvas (se reduce solo si no cabe en el piso)
+const float HEAD_TURN = 28.0f;       // cuanto voltea la cabeza hacia el lado de la vuelta (grados)
+const float ANTICIP_DIST = 0.35f;    // distancia antes de la curva en la que empieza a voltear la cabeza
+float headYaw = 0.0f;                // giro de la cabeza en Y (mira hacia el lado de la vuelta)
+
 
 
 // Deltatime
@@ -195,6 +254,28 @@ int main()
 	float headMaxZ = GetMaxZ("Models/HeadDog.obj");
 	floorLimitZ = pisoMaxZ - (0.208f + headMaxZ);   // borde del piso menos lo que sobresale la cabeza
 	std::cout << "Borde del piso en z = " << pisoMaxZ << " | El perro se detiene en z = " << floorLimitZ << std::endl;
+
+	// ---------- Puntos de la trayectoria ----------
+	// Margen: lo que el perro sobresale de su centro (la nariz al frente o la cola atras),
+	// asi en ninguna esquina ni al girar se sale del piso
+	Bounds bPiso = GetOBJBounds("Models/piso.obj");
+	Bounds bBody = GetOBJBounds("Models/DogBody.obj");
+	Bounds bTail = GetOBJBounds("Models/TailDog.obj");
+	float frente = 0.208f + headMaxZ;                              // nariz
+	float atras = glm::max(-bBody.min.z, 0.288f - bTail.min.z);    // cola o parte trasera del cuerpo
+	float margen = glm::max(frente, atras) + 0.05f;
+	glm::vec3 centro = (bPiso.min + bPiso.max) * 0.5f;
+	puntos[P_E] = glm::vec3(centro.x, 0.0f, centro.z);                           // centro del pasto
+	puntos[P_A] = glm::vec3(centro.x, 0.0f, bPiso.max.z - margen);               // frente, al centro
+	puntos[P_B] = glm::vec3(bPiso.max.x - margen, 0.0f, bPiso.max.z - margen);   // esquina frente-izquierda del perro
+	puntos[P_C] = glm::vec3(bPiso.min.x + margen, 0.0f, bPiso.min.z + margen);   // esquina contraria a B
+	puntos[P_D] = glm::vec3(bPiso.max.x - margen, 0.0f, bPiso.min.z + margen);   // esquina al fondo, del lado de B
+	dogPos = puntos[P_E];
+	BuildPath();
+	const char* nombres = "EABCD";
+	for (int i = 0; i < 5; i++)
+		std::cout << "Punto " << nombres[i] << ": (" << puntos[i].x << ", " << puntos[i].z << ")" << std::endl;
+	std::cout << "Controles: B = iniciar recorrido | P = pausa" << std::endl;
 
 	// First, set the container's VAO (and VBO)
 	GLuint VBO, VAO;
@@ -327,6 +408,7 @@ int main()
 		//Head
 		model = modelTemp;
 		model = glm::translate(model, glm::vec3(0.0f, 0.093f, 0.208f));
+		model = glm::rotate(model, glm::radians(headYaw), glm::vec3(0.0f, 1.0f, 0.0f));   // voltea hacia el giro
 		model = glm::rotate(model, glm::radians(head), glm::vec3(0.0f, 0.0f, 1.0f));
 		glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(model));
 		HeadDog.Draw(lightingShader);
@@ -513,9 +595,9 @@ void KeyCallback(GLFWwindow* window, int key, int scancode, int action, int mode
 		AnimBall = !AnimBall;
 
 	}
-	if (keys[GLFW_KEY_B])
+	if (key == GLFW_KEY_B && action == GLFW_PRESS)
 	{
-		dogAnim = 1;
+		dogAnim = 1;   // inicia (o reinicia desde E) el recorrido
 	}
 	if (key == GLFW_KEY_P && action == GLFW_PRESS)
 	{
@@ -535,42 +617,254 @@ void Animation() {
 		rotDog -= 0.6f;
 		//printf("%f", rotBall);
 	}
-	if (dogAnim == 1) {  //walk animation
-		if (!step) { //state 1
-			RLegs += 0.3f;
-			FLegs += 0.3f;
-			head += 0.3f;
-			tail += 0.3f;
+	if (dogAnim == 1) {  // recorrido E -> A -> B -> C -> D -> E
+		Recorrido();
+	}
+	else {
+		// Detenido: patas, cabeza y cola regresan poco a poco a su posicion original
+		float k = glm::min(1.0f, 6.0f * deltaTime);
+		RLegs -= RLegs * k; FLegs -= FLegs * k; head -= head * k; tail -= tail * k;
+		headYaw -= headYaw * k;
+	}
+}
 
-			if (RLegs > 15.0f) { //condition
-				step = true;
-			}
+// Ciclo de pasos de la maquina de estados del previo, ahora en grados por segundo
+void StepLegs(float rate, float amp)
+{
+	float d = rate * deltaTime;
+	if (!step) { //state 1
+		RLegs += d; FLegs += d; head += d; tail += d;
+		if (RLegs > amp) { //condition
+			step = true;
 		}
-		else {
-			RLegs -= 0.3f;
-			FLegs -= 0.3f;
-			head -= 0.3f;
-			tail -= 0.3f;
-
-			if (RLegs < -15.0f) { //condition
-				step = false;
-			}
-		}
-
-		// Avanza solo mientras no llegue al borde del piso
-		if (dogPos.z < floorLimitZ) {
-			dogPos.z += 0.001;
-		}
-		else {
-			dogPos.z = floorLimitZ;
-			dogAnim = 0;                          // se detiene la caminata
-			RLegs = FLegs = head = tail = 0.0f;   // queda parado en su pose original
+	}
+	else { //state 2
+		RLegs -= d; FLegs -= d; head -= d; tail -= d;
+		if (RLegs < -amp) { //condition
 			step = false;
 		}
-		printf("\n%f", RLegs);
+	}
+}
+
+float YawTowards(glm::vec3 from, glm::vec3 to)
+{
+	glm::vec3 d = to - from;
+	return glm::degrees(atan2(d.x, d.z));   // el modelo mira hacia +Z cuando dogRot = 0
+}
+
+glm::vec3 DirFromYaw(float yaw)
+{
+	float r = glm::radians(yaw);
+	return glm::vec3(sin(r), 0.0f, cos(r));
+}
+
+float AngDiff(float from, float to)
+{
+	return fmod(to - from + 540.0f, 360.0f) - 180.0f;
+}
+
+// Agrega un tramo recto de 'a' a 'b'
+void AddRecta(glm::vec3 a, glm::vec3 b)
+{
+	float L = glm::length(b - a);
+	if (L < 0.0005f) return;
+	Tramo t;
+	t.tipo = RECTA; t.inicio = a; t.dir = (b - a) / L; t.largo = L;
+	t.yawInicio = YawTowards(a, b);
+	tramos[numTramos++] = t;
+}
+
+// Agrega la curva que une la recta que llega con direccion d0 y la que sale con direccion d1.
+// T0 es el punto donde empieza la curva. Regresa en T1 el punto donde termina.
+void AddCurva(glm::vec3 T0, glm::vec3 d0, glm::vec3 d1, float R, glm::vec3& T1)
+{
+	float yaw0 = glm::degrees(atan2(d0.x, d0.z));
+	float giro = AngDiff(yaw0, glm::degrees(atan2(d1.x, d1.z)));   // + izquierda, - derecha
+	int sentido = (giro > 0.0f) ? 1 : -1;
+	glm::vec3 izq(d0.z, 0.0f, -d0.x);                               // normal hacia la izquierda de d0
+	Tramo t;
+	t.tipo = (sentido > 0) ? CURVA_IZQ : CURVA_DER;
+	t.dir = d0; t.yawInicio = yaw0; t.radio = R;
+	t.angulo = fabsf(giro);
+	t.centro = T0 + izq * (R * sentido);
+	t.largo = R * glm::radians(t.angulo);
+	t.inicio = T0;
+	tramos[numTramos++] = t;
+	float a = glm::radians(t.angulo);
+	T1 = t.centro - izq * (R * sentido * (float)cos(a)) + d0 * (R * (float)sin(a));
+}
+
+// Arma la trayectoria: rectas entre los puntos y una curva en cada esquina.
+// La ultima curva termina exactamente en E mirando hacia A (fin e inicio del recorrido).
+void BuildPath()
+{
+	glm::vec3 E = puntos[P_E], A = puntos[P_A], B = puntos[P_B], C = puntos[P_C], D = puntos[P_D];
+	glm::vec3 dirA = glm::normalize(A - E);   // direccion final en E (mirar hacia A)
+
+	// Esquinas: punto de la esquina y punto siguiente
+	glm::vec3 vert[7] = { E, A, B, C, D, E, E };
+	float R = TURN_RADIUS;
+
+	for (int intento = 0; intento < 20; intento++)
+	{
+		// La ultima esquina (V) se calcula para que la curva final termine justo en E mirando hacia A
+		glm::vec3 d0 = glm::normalize(E - D);
+		glm::vec3 V = E;
+		for (int k = 0; k < 6; k++)
+		{
+			float g = fabsf(glm::radians(AngDiff(glm::degrees(atan2(d0.x, d0.z)), glm::degrees(atan2(dirA.x, dirA.z)))));
+			V = E - dirA * (R * (float)tan(g * 0.5f));
+			d0 = glm::normalize(V - D);
+		}
+		vert[5] = V;
+		vert[6] = E;
+
+		// Distancia de cada esquina a la que empieza/termina su curva: t = R * tan(giro/2)
+		float tEsq[7] = { 0 };
+		for (int k = 1; k <= 5; k++)
+		{
+			glm::vec3 a = glm::normalize(vert[k] - vert[k - 1]);
+			glm::vec3 b = glm::normalize(vert[k + 1] - vert[k]);
+			float g = fabsf(glm::radians(AngDiff(glm::degrees(atan2(a.x, a.z)), glm::degrees(atan2(b.x, b.z)))));
+			tEsq[k] = R * tan(g * 0.5f);
+		}
+		// Si alguna recta no alcanza para sus dos curvas, se reduce el radio
+		bool cabe = true;
+		for (int k = 0; k < 5; k++)
+			if (tEsq[k] + tEsq[k + 1] > 0.95f * glm::length(vert[k + 1] - vert[k]) && k + 1 != 5) cabe = false;
+		if (tEsq[5] > 0.95f * glm::length(vert[5] - vert[4])) cabe = false;
+		if (!cabe) { R *= 0.85f; continue; }
+
+		// Construccion de los tramos
+		numTramos = 0;
+		glm::vec3 p = vert[0];
+		for (int k = 1; k <= 5; k++)
+		{
+			glm::vec3 a = glm::normalize(vert[k] - vert[k - 1]);
+			glm::vec3 b = glm::normalize(vert[k + 1] - vert[k]);
+			glm::vec3 T0 = vert[k] - a * tEsq[k];
+			AddRecta(p, T0);
+			glm::vec3 T1;
+			AddCurva(T0, a, b, R, T1);
+			p = T1;
+		}
+		AddRecta(p, E);
+		break;
 	}
 
+	largoTotal = 0.0f;
+	for (int i = 0; i < numTramos; i++) largoTotal += tramos[i].largo;
+	std::cout << "Trayectoria: " << numTramos << " tramos, largo " << largoTotal << ", radio de las vueltas " << R << std::endl;
 }
+
+// Avanza al perro sobre la trayectoria y llama a la animacion del tramo en el que esta
+void Recorrido()
+{
+	if (sRecorrido >= largoTotal) { sRecorrido = 0.0f; tramoActual = 0; velFactor = 0.0f; }   // B lo reinicia
+
+	// Velocidad: mas lenta en las curvas, arranca suave y frena al final
+	Tramo& t = tramos[tramoActual];
+	float objetivo = (t.tipo == RECTA) ? 1.0f : TURN_SPEED / WALK_SPEED;
+	velFactor += (objetivo - velFactor) * glm::min(1.0f, deltaTime / ACCEL_TIME * 2.5f);
+	float falta = largoTotal - sRecorrido;
+	float fren = glm::clamp(falta / DECEL_DIST, 0.2f, 1.0f);
+	sRecorrido += WALK_SPEED * velFactor * fren * deltaTime;
+
+	if (sRecorrido >= largoTotal)
+	{
+		sRecorrido = largoTotal;
+		dogPos = puntos[P_E];
+		dogRot = YawTowards(puntos[P_E], puntos[P_A]);   // termina mirando hacia A
+		dogAnim = 0;   // fin del recorrido: queda en E mirando hacia A hasta presionar B
+		std::cout << "Recorrido terminado" << std::endl;
+		return;
+	}
+
+	// Tramo en el que esta y distancia recorrida dentro de el
+	float acum = 0.0f;
+	for (tramoActual = 0; tramoActual < numTramos - 1; tramoActual++)
+	{
+		if (sRecorrido < acum + tramos[tramoActual].largo) break;
+		acum += tramos[tramoActual].largo;
+	}
+	float sLocal = sRecorrido - acum;
+
+	// Ritmo de los pasos de acuerdo con la velocidad
+	float ritmo = LEG_SPEED * glm::max(0.45f, velFactor * fren);
+
+	switch (tramos[tramoActual].tipo)
+	{
+	case RECTA:     Caminar(sLocal); StepLegs(ritmo, LEG_AMP); break;
+	case CURVA_IZQ: GiroIzquierda(sLocal); StepLegs(ritmo, TURN_LEG_AMP); break;
+	case CURVA_DER: GiroDerecha(sLocal); StepLegs(ritmo, TURN_LEG_AMP); break;
+	}
+}
+
+// Caminar en linea recta. Antes de llegar a la siguiente curva, voltea la cabeza hacia ese lado
+void Caminar(float s)
+{
+	Tramo& t = tramos[tramoActual];
+	dogPos = t.inicio + t.dir * s;
+	dogRot = t.yawInicio;
+
+	float objetivo = 0.0f;
+	float faltaTramo = t.largo - s;
+	if (tramoActual + 1 < numTramos && tramos[tramoActual + 1].tipo != RECTA && faltaTramo < ANTICIP_DIST)
+	{
+		int lado = (tramos[tramoActual + 1].tipo == CURVA_IZQ) ? 1 : -1;
+		objetivo = lado * HEAD_TURN * (1.0f - faltaTramo / ANTICIP_DIST);
+	}
+	headYaw += (objetivo - headYaw) * glm::min(1.0f, 5.0f * deltaTime);
+}
+
+// Vuelta comun: el perro avanza sobre el arco y su cuerpo va girando con la tangente de la curva,
+// de modo que siempre mira hacia donde camina (no gira en su lugar ni se desliza).
+// La cabeza va volteada hacia el lado de la vuelta y se endereza al terminarla.
+void Vuelta(float s, int lado)
+{
+	Tramo& t = tramos[tramoActual];
+	float phi = s / t.radio;                                   // angulo recorrido en el arco (radianes)
+	glm::vec3 izq(t.dir.z, 0.0f, -t.dir.x);
+	dogPos = t.centro - izq * (t.radio * lado * (float)cos(phi)) + t.dir * (t.radio * (float)sin(phi));
+	dogRot = t.yawInicio + lado * glm::degrees(phi);          // mira en la direccion de la curva
+
+	float p = s / t.largo;                                     // avance en la curva (0 a 1)
+	float r = glm::clamp((p - 0.65f) / 0.35f, 0.0f, 1.0f);
+	float objetivo = lado * HEAD_TURN * (1.0f - r * r * (3.0f - 2.0f * r));
+	headYaw += (objetivo - headYaw) * glm::min(1.0f, 5.0f * deltaTime);
+}
+
+void GiroIzquierda(float s) { Vuelta(s, 1); }
+void GiroDerecha(float s) { Vuelta(s, -1); }
+
+// Lee los vertices ("v x y z") de un archivo .obj y regresa su caja envolvente
+Bounds GetOBJBounds(const char* path)
+{
+	Bounds b;
+	b.min = glm::vec3(1e9f);
+	b.max = glm::vec3(-1e9f);
+	std::ifstream file(path);
+	std::string line;
+	while (std::getline(file, line))
+	{
+		if (line.size() > 2 && line[0] == 'v' && line[1] == ' ')
+		{
+			std::istringstream ss(line.substr(2));
+			glm::vec3 v;
+			ss >> v.x >> v.y >> v.z;
+			b.min = glm::min(b.min, v);
+			b.max = glm::max(b.max, v);
+		}
+	}
+	if (b.min.x > b.max.x)
+	{
+		std::cout << "No se pudo abrir " << path << std::endl;
+		b.min = glm::vec3(0.0f);
+		b.max = glm::vec3(0.0f);
+	}
+	return b;
+}
+
 // Lee los vertices ("v x y z") de un .obj y regresa su coordenada Z mas grande (lo mas al frente)
 float GetMaxZ(const char* path)
 {
