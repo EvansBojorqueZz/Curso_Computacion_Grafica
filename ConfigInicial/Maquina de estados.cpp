@@ -47,7 +47,8 @@ struct Bounds
 Bounds GetOBJBounds(const char* path);
 
 // Animaciones del perro
-void StepLegs(float rate, float amp); // ciclo de pasos (patas, cabeza y cola) a 'rate' grados por segundo y amplitud 'amp'
+void StepLegs(float rate, float amp, bool moverCabeza); // ciclo de pasos (patas, cabeza y cola)
+glm::vec3 PosOnPath(float s);         // punto de la trayectoria a una distancia s del inicio
 float YawTowards(glm::vec3 from, glm::vec3 to);   // angulo en Y para mirar de 'from' hacia 'to'
 float AngDiff(float from, float to);  // diferencia angular mas corta (-180 a 180)
 glm::vec3 DirFromYaw(float yaw);      // direccion hacia la que mira el perro con ese giro
@@ -172,14 +173,17 @@ float velFactor = 0.0f;      // velocidad actual como fraccion de WALK_SPEED (su
 // Parametros de la animacion
 const float WALK_SPEED = 0.45f;      // velocidad de caminata en recta (unidades/s)
 const float TURN_SPEED = 0.30f;      // velocidad al dar la vuelta (mas lenta para que la curva sea limpia)
+const float MAX_TURN_RATE = 50.0f;   // giro maximo del cuerpo en las curvas (grados por segundo)
 const float ACCEL_TIME = 0.6f;       // segundos para pasar de detenido a velocidad normal
 const float DECEL_DIST = 0.40f;      // distancia antes del final en la que empieza a frenar
 const float LEG_SPEED = 75.0f;       // velocidad del ciclo de pasos (grados/s) a velocidad normal
 const float LEG_AMP = 15.0f;         // amplitud del paso al caminar (grados)
 const float TURN_LEG_AMP = 11.0f;    // pasos un poco mas cortos en la curva (grados)
-const float TURN_RADIUS = 0.35f;     // radio de las curvas (se reduce solo si no cabe en el piso)
-const float HEAD_TURN = 28.0f;       // cuanto voltea la cabeza hacia el lado de la vuelta (grados)
-const float ANTICIP_DIST = 0.35f;    // distancia antes de la curva en la que empieza a voltear la cabeza
+const float TURN_LEG_SPEED = 70.0f;  // ritmo de los pasos en la curva: casi el de caminar aunque avance mas lento
+const float TURN_RADIUS = 0.25f;     // radio de las vueltas, parecido a medio cuerpo del perro (se reduce solo si no cabe)
+const float HEAD_TURN = 40.0f;       // cuanto puede voltear la cabeza hacia el lado de la vuelta (grados)
+const float ANTICIP_DIST = 0.45f;    // distancia antes de la curva en la que empieza a voltear la cabeza
+const float LOOK_AHEAD = 0.45f;      // la cabeza mira hacia el punto de la trayectoria que esta 0.45 adelante
 float headYaw = 0.0f;                // giro de la cabeza en Y (mira hacia el lado de la vuelta)
 
 
@@ -628,22 +632,25 @@ void Animation() {
 	}
 }
 
-// Ciclo de pasos de la maquina de estados del previo, ahora en grados por segundo
-void StepLegs(float rate, float amp)
+// Ciclo de pasos de la maquina de estados del previo, ahora en grados por segundo.
+// Durante las vueltas la cabeza deja de cabecear (moverCabeza = false) para que solo voltee hacia la curva.
+void StepLegs(float rate, float amp, bool moverCabeza)
 {
 	float d = rate * deltaTime;
+	float dh = moverCabeza ? d : 0.0f;
 	if (!step) { //state 1
-		RLegs += d; FLegs += d; head += d; tail += d;
+		RLegs += d; FLegs += d; head += dh; tail += d;
 		if (RLegs > amp) { //condition
 			step = true;
 		}
 	}
 	else { //state 2
-		RLegs -= d; FLegs -= d; head -= d; tail -= d;
+		RLegs -= d; FLegs -= d; head -= dh; tail -= d;
 		if (RLegs < -amp) { //condition
 			step = false;
 		}
 	}
+	if (!moverCabeza) head -= head * glm::min(1.0f, 6.0f * deltaTime);   // la cabeza se queda derecha
 }
 
 float YawTowards(glm::vec3 from, glm::vec3 to)
@@ -694,6 +701,13 @@ void AddCurva(glm::vec3 T0, glm::vec3 d0, glm::vec3 d1, float R, glm::vec3& T1)
 	T1 = t.centro - izq * (R * sentido * (float)cos(a)) + d0 * (R * (float)sin(a));
 }
 
+// Radio de la curva de una esquina: todas las vueltas usan el mismo radio para que se vean naturales
+// (un radio muy chico hace que el perro gire casi sobre su eje y se vea brusco)
+float RadioEsquina(float R, float g)
+{
+	return R;
+}
+
 // Arma la trayectoria: rectas entre los puntos y una curva en cada esquina.
 // La ultima curva termina exactamente en E mirando hacia A (fin e inicio del recorrido).
 void BuildPath()
@@ -713,7 +727,7 @@ void BuildPath()
 		for (int k = 0; k < 6; k++)
 		{
 			float g = fabsf(glm::radians(AngDiff(glm::degrees(atan2(d0.x, d0.z)), glm::degrees(atan2(dirA.x, dirA.z)))));
-			V = E - dirA * (R * (float)tan(g * 0.5f));
+			V = E - dirA * (RadioEsquina(R, g) * (float)tan(g * 0.5f));
 			d0 = glm::normalize(V - D);
 		}
 		vert[5] = V;
@@ -721,12 +735,14 @@ void BuildPath()
 
 		// Distancia de cada esquina a la que empieza/termina su curva: t = R * tan(giro/2)
 		float tEsq[7] = { 0 };
+		float rEsq[7] = { 0 };
 		for (int k = 1; k <= 5; k++)
 		{
 			glm::vec3 a = glm::normalize(vert[k] - vert[k - 1]);
 			glm::vec3 b = glm::normalize(vert[k + 1] - vert[k]);
 			float g = fabsf(glm::radians(AngDiff(glm::degrees(atan2(a.x, a.z)), glm::degrees(atan2(b.x, b.z)))));
-			tEsq[k] = R * tan(g * 0.5f);
+			rEsq[k] = RadioEsquina(R, g);
+			tEsq[k] = rEsq[k] * tan(g * 0.5f);
 		}
 		// Si alguna recta no alcanza para sus dos curvas, se reduce el radio
 		bool cabe = true;
@@ -745,7 +761,7 @@ void BuildPath()
 			glm::vec3 T0 = vert[k] - a * tEsq[k];
 			AddRecta(p, T0);
 			glm::vec3 T1;
-			AddCurva(T0, a, b, R, T1);
+			AddCurva(T0, a, b, rEsq[k], T1);
 			p = T1;
 		}
 		AddRecta(p, E);
@@ -758,16 +774,46 @@ void BuildPath()
 }
 
 // Avanza al perro sobre la trayectoria y llama a la animacion del tramo en el que esta
+float VelCurva(const Tramo& t)
+{
+	// En las curvas cerradas va mas lento para que el cuerpo no gire mas de MAX_TURN_RATE grados por segundo
+	return glm::min(TURN_SPEED, glm::radians(MAX_TURN_RATE) * t.radio) / WALK_SPEED;
+}
+
+int BuscarTramo(float s, float& sLocal)
+{
+	float acum = 0.0f;
+	int i = 0;
+	for (; i < numTramos - 1; i++)
+	{
+		if (s < acum + tramos[i].largo) break;
+		acum += tramos[i].largo;
+	}
+	sLocal = s - acum;
+	return i;
+}
+
 void Recorrido()
 {
 	if (sRecorrido >= largoTotal) { sRecorrido = 0.0f; tramoActual = 0; velFactor = 0.0f; }   // B lo reinicia
 
-	// Velocidad: mas lenta en las curvas, arranca suave y frena al final
+	float sLocal;
+	tramoActual = BuscarTramo(sRecorrido, sLocal);
 	Tramo& t = tramos[tramoActual];
-	float objetivo = (t.tipo == RECTA) ? 1.0f : TURN_SPEED / WALK_SPEED;
+
+	// Velocidad objetivo: normal en las rectas, mas lenta en las curvas. Antes de una curva va frenando
+	// para entrar a ella ya despacio; al final del recorrido frena hasta detenerse.
+	float objetivo = 1.0f;
+	if (t.tipo != RECTA) objetivo = VelCurva(t);
+	else if (tramoActual + 1 < numTramos && tramos[tramoActual + 1].tipo != RECTA)
+	{
+		float falta = t.largo - sLocal;
+		float k = glm::clamp(falta / ANTICIP_DIST, 0.0f, 1.0f);
+		objetivo = glm::mix(VelCurva(tramos[tramoActual + 1]), 1.0f, k);
+	}
 	velFactor += (objetivo - velFactor) * glm::min(1.0f, deltaTime / ACCEL_TIME * 2.5f);
-	float falta = largoTotal - sRecorrido;
-	float fren = glm::clamp(falta / DECEL_DIST, 0.2f, 1.0f);
+	float faltaTotal = largoTotal - sRecorrido;
+	float fren = glm::clamp(faltaTotal / DECEL_DIST, 0.2f, 1.0f);
 	sRecorrido += WALK_SPEED * velFactor * fren * deltaTime;
 
 	if (sRecorrido >= largoTotal)
@@ -780,24 +826,54 @@ void Recorrido()
 		return;
 	}
 
-	// Tramo en el que esta y distancia recorrida dentro de el
-	float acum = 0.0f;
-	for (tramoActual = 0; tramoActual < numTramos - 1; tramoActual++)
-	{
-		if (sRecorrido < acum + tramos[tramoActual].largo) break;
-		acum += tramos[tramoActual].largo;
-	}
-	float sLocal = sRecorrido - acum;
+	tramoActual = BuscarTramo(sRecorrido, sLocal);
 
 	// Ritmo de los pasos de acuerdo con la velocidad
-	float ritmo = LEG_SPEED * glm::max(0.45f, velFactor * fren);
+	// En las rectas el ritmo sigue a la velocidad; al frenar para una vuelta y dentro de ella las patas
+	// siguen caminando a buen ritmo con pasos mas cortos (el perro da pasitos mientras gira)
+	float ritmo = LEG_SPEED * glm::max(0.6f, velFactor * fren);
 
-	switch (tramos[tramoActual].tipo)
+	// Cerca de una vuelta (o dentro de ella) la cabeza deja de cabecear para solo voltear hacia la curva
+	const Tramo& ta = tramos[tramoActual];
+	bool enVuelta = (ta.tipo != RECTA) ||
+		(tramoActual + 1 < numTramos && tramos[tramoActual + 1].tipo != RECTA && ta.largo - sLocal < ANTICIP_DIST) ||
+		(tramoActual > 0 && tramos[tramoActual - 1].tipo != RECTA && sLocal < 0.15f);
+
+	switch (ta.tipo)
 	{
-	case RECTA:     Caminar(sLocal); StepLegs(ritmo, LEG_AMP); break;
-	case CURVA_IZQ: GiroIzquierda(sLocal); StepLegs(ritmo, TURN_LEG_AMP); break;
-	case CURVA_DER: GiroDerecha(sLocal); StepLegs(ritmo, TURN_LEG_AMP); break;
+	case RECTA:     Caminar(sLocal); StepLegs(enVuelta ? glm::max(ritmo, TURN_LEG_SPEED) : ritmo, LEG_AMP, !enVuelta); break;
+	case CURVA_IZQ: GiroIzquierda(sLocal); StepLegs(TURN_LEG_SPEED, TURN_LEG_AMP, false); break;
+	case CURVA_DER: GiroDerecha(sLocal); StepLegs(TURN_LEG_SPEED, TURN_LEG_AMP, false); break;
 	}
+}
+
+// Punto de la trayectoria a una distancia s del inicio
+glm::vec3 PosOnPath(float s)
+{
+	s = glm::clamp(s, 0.0f, largoTotal);
+	float sl;
+	int i = BuscarTramo(s, sl);
+	const Tramo& t = tramos[i];
+	if (t.tipo == RECTA) return t.inicio + t.dir * sl;
+	int lado = (t.tipo == CURVA_IZQ) ? 1 : -1;
+	float phi = sl / t.radio;
+	glm::vec3 izq(t.dir.z, 0.0f, -t.dir.x);
+	return t.centro - izq * (t.radio * lado * (float)cos(phi)) + t.dir * (t.radio * (float)sin(phi));
+}
+
+// La cabeza mira hacia un punto que esta LOOK_AHEAD mas adelante sobre la trayectoria:
+// en las rectas mira al frente y, al acercarse a una vuelta, voltea sola hacia el lado de la curva
+// antes que el cuerpo; dentro de la curva se mantiene volteada y al salir se endereza.
+void MirarAdelante()
+{
+	float objetivo = 0.0f;
+	float faltaTotal = largoTotal - sRecorrido;
+	if (faltaTotal > 0.1f)
+	{
+		glm::vec3 punto = PosOnPath(sRecorrido + glm::min(LOOK_AHEAD, faltaTotal));
+		objetivo = glm::clamp(AngDiff(dogRot, YawTowards(dogPos, punto)), -HEAD_TURN, HEAD_TURN);
+	}
+	headYaw += (objetivo - headYaw) * glm::min(1.0f, 4.0f * deltaTime);
 }
 
 // Caminar en linea recta. Antes de llegar a la siguiente curva, voltea la cabeza hacia ese lado
@@ -807,19 +883,12 @@ void Caminar(float s)
 	dogPos = t.inicio + t.dir * s;
 	dogRot = t.yawInicio;
 
-	float objetivo = 0.0f;
-	float faltaTramo = t.largo - s;
-	if (tramoActual + 1 < numTramos && tramos[tramoActual + 1].tipo != RECTA && faltaTramo < ANTICIP_DIST)
-	{
-		int lado = (tramos[tramoActual + 1].tipo == CURVA_IZQ) ? 1 : -1;
-		objetivo = lado * HEAD_TURN * (1.0f - faltaTramo / ANTICIP_DIST);
-	}
-	headYaw += (objetivo - headYaw) * glm::min(1.0f, 5.0f * deltaTime);
+	MirarAdelante();
 }
 
 // Vuelta comun: el perro avanza sobre el arco y su cuerpo va girando con la tangente de la curva,
 // de modo que siempre mira hacia donde camina (no gira en su lugar ni se desliza).
-// La cabeza va volteada hacia el lado de la vuelta y se endereza al terminarla.
+// Solo la cabeza voltea hacia la curva (MirarAdelante); el cuerpo no se inclina ni cabecea.
 void Vuelta(float s, int lado)
 {
 	Tramo& t = tramos[tramoActual];
@@ -828,10 +897,7 @@ void Vuelta(float s, int lado)
 	dogPos = t.centro - izq * (t.radio * lado * (float)cos(phi)) + t.dir * (t.radio * (float)sin(phi));
 	dogRot = t.yawInicio + lado * glm::degrees(phi);          // mira en la direccion de la curva
 
-	float p = s / t.largo;                                     // avance en la curva (0 a 1)
-	float r = glm::clamp((p - 0.65f) / 0.35f, 0.0f, 1.0f);
-	float objetivo = lado * HEAD_TURN * (1.0f - r * r * (3.0f - 2.0f * r));
-	headYaw += (objetivo - headYaw) * glm::min(1.0f, 5.0f * deltaTime);
+	MirarAdelante();
 }
 
 void GiroIzquierda(float s) { Vuelta(s, 1); }
