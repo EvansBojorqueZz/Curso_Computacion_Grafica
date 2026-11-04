@@ -1,11 +1,14 @@
-//Previo 12
+//Practica 12
 //Bojorquez Covarrubias Evans Martin
-//Fecha de entrega: 30 de octubre de 2026
+//Fecha de entrega: 4 de noviembre de 2026
 //321203018
 
 
 #include <iostream>
 #include <cmath>
+#include <fstream>
+#include <sstream>
+#include <string>
 
 // GLEW
 #include <GL/glew.h>
@@ -122,6 +125,7 @@ float FLegR = 0.0f;      // pata delantera derecha
 float BLegL = 0.0f;      // pata trasera izquierda
 float BLegR = 0.0f;      // pata trasera derecha
 float bodyPitch = 0.0f;  // inclinacion del cuerpo sobre las caderas (negativo = levanta el frente, para sentarse)
+float bodyRoll = 0.0f;   // giro del perro sobre su eje largo (90 = de lado, 180 = boca arriba)
 
 // Velocidades de los controles (por segundo, para que no dependan de los FPS)
 const float MOVE_SPEED = 0.5f;    // unidades por segundo
@@ -130,7 +134,7 @@ const float ROT_SPEED = 60.0f;    // grados por segundo
 //KeyFrames
 float dogPosX, dogPosY, dogPosZ;
 
-#define MAX_FRAMES 20
+#define MAX_FRAMES 30
 int i_max_steps = 70;          // pasos entre keyframes (a 60 FPS son poco mas de 1 segundo)
 int i_curr_steps = 0;
 typedef struct _frame {
@@ -157,6 +161,8 @@ typedef struct _frame {
 	float BLegRInc;
 	float bodyPitch;
 	float bodyPitchInc;
+	float bodyRoll;
+	float bodyRollInc;
 
 
 }FRAME;
@@ -165,6 +171,10 @@ FRAME KeyFrame[MAX_FRAMES];
 int FrameIndex = 0;			//introducir datos
 bool play = false;
 int playIndex = 0;
+
+// Archivo donde se guarda la animacion (en la carpeta del proyecto, junto a Models y Shader)
+const char* ANIM_FILE = "keyframes.txt";
+bool unsavedFrames = false;   // true si hay keyframes grabados con K que aun no se guardan con P
 
 void saveFrame(void)
 {
@@ -183,29 +193,36 @@ void saveFrame(void)
 	KeyFrame[FrameIndex].BLegL = BLegL;
 	KeyFrame[FrameIndex].BLegR = BLegR;
 	KeyFrame[FrameIndex].bodyPitch = bodyPitch;
+	KeyFrame[FrameIndex].bodyRoll = bodyRoll;
 
 	// Valores guardados (sirven para el reporte)
-	printf("  pos(%.2f, %.2f, %.2f) rot %.1f | cuerpo %.1f | cabeza %.1f | cola %.1f | DI %.1f DD %.1f TI %.1f TD %.1f\n",
-		dogPosX, dogPosY, dogPosZ, rotDog, bodyPitch, head, tail, FLegL, FLegR, BLegL, BLegR);
+	printf("  pos(%.2f, %.2f, %.2f) rot %.1f | lado %.1f | cuerpo %.1f | cabeza %.1f | cola %.1f | DI %.1f DD %.1f TI %.1f TD %.1f\n",
+		dogPosX, dogPosY, dogPosZ, rotDog, bodyRoll, bodyPitch, head, tail, FLegL, FLegR, BLegL, BLegR);
 
 	FrameIndex++;
+	unsavedFrames = true;
+}
+
+// Coloca al perro exactamente en la pose del keyframe i
+void applyFrame(int i)
+{
+	dogPosX = KeyFrame[i].dogPosX;
+	dogPosY = KeyFrame[i].dogPosY;
+	dogPosZ = KeyFrame[i].dogPosZ;
+	rotDog = KeyFrame[i].rotDog;
+	bodyRoll = KeyFrame[i].bodyRoll;
+	bodyPitch = KeyFrame[i].bodyPitch;
+	head = KeyFrame[i].head;
+	tail = KeyFrame[i].tail;
+	FLegL = KeyFrame[i].FLegL;
+	FLegR = KeyFrame[i].FLegR;
+	BLegL = KeyFrame[i].BLegL;
+	BLegR = KeyFrame[i].BLegR;
 }
 
 void resetElements(void)
 {
-	dogPosX = KeyFrame[0].dogPosX;
-	dogPosY = KeyFrame[0].dogPosY;
-	dogPosZ = KeyFrame[0].dogPosZ;
-	head = KeyFrame[0].head;
-	tail = KeyFrame[0].tail;
-	FLegL = KeyFrame[0].FLegL;
-	FLegR = KeyFrame[0].FLegR;
-	BLegL = KeyFrame[0].BLegL;
-	BLegR = KeyFrame[0].BLegR;
-	bodyPitch = KeyFrame[0].bodyPitch;
-
-	rotDog = KeyFrame[0].rotDog;
-
+	applyFrame(0);
 }
 void interpolation(void)
 {
@@ -220,6 +237,7 @@ void interpolation(void)
 	KeyFrame[playIndex].BLegLInc = (KeyFrame[playIndex + 1].BLegL - KeyFrame[playIndex].BLegL) / i_max_steps;
 	KeyFrame[playIndex].BLegRInc = (KeyFrame[playIndex + 1].BLegR - KeyFrame[playIndex].BLegR) / i_max_steps;
 	KeyFrame[playIndex].bodyPitchInc = (KeyFrame[playIndex + 1].bodyPitch - KeyFrame[playIndex].bodyPitch) / i_max_steps;
+	KeyFrame[playIndex].bodyRollInc = (KeyFrame[playIndex + 1].bodyRoll - KeyFrame[playIndex].bodyRoll) / i_max_steps;
 
 	KeyFrame[playIndex].rotDogInc = (KeyFrame[playIndex + 1].rotDog - KeyFrame[playIndex].rotDog) / i_max_steps;
 
@@ -227,36 +245,54 @@ void interpolation(void)
 
 
 
-// Guarda un keyframe con valores dados (para recuperar la animacion grabada)
-void setFrame(int i, float x, float y, float z, float rot, float pitch, float cabeza, float cola,
-	float dI, float dD, float tI, float tD)
+// Guarda todos los keyframes en el archivo de texto (un keyframe por renglon)
+void saveAnimationToFile(void)
 {
-	KeyFrame[i].dogPosX = x;
-	KeyFrame[i].dogPosY = y;
-	KeyFrame[i].dogPosZ = z;
-	KeyFrame[i].rotDog = rot;
-	KeyFrame[i].bodyPitch = pitch;
-	KeyFrame[i].head = cabeza;
-	KeyFrame[i].tail = cola;
-	KeyFrame[i].FLegL = dI;
-	KeyFrame[i].FLegR = dD;
-	KeyFrame[i].BLegL = tI;
-	KeyFrame[i].BLegR = tD;
+	std::ofstream file(ANIM_FILE);
+	if (!file.is_open())
+	{
+		printf("No se pudo crear %s\n", ANIM_FILE);
+		return;
+	}
+	file << "# x y z rot lado cuerpo cabeza cola DI DD TI TD\n";
+	for (int i = 0; i < FrameIndex; i++)
+	{
+		const FRAME& k = KeyFrame[i];
+		file << k.dogPosX << " " << k.dogPosY << " " << k.dogPosZ << " " << k.rotDog << " "
+			<< k.bodyRoll << " " << k.bodyPitch << " " << k.head << " " << k.tail << " "
+			<< k.FLegL << " " << k.FLegR << " " << k.BLegL << " " << k.BLegR << "\n";
+	}
+	unsavedFrames = false;
+	printf("Animacion guardada en %s (%d keyframes)\n", ANIM_FILE, FrameIndex);
 }
 
-// Animacion grabada con K: el perro se sienta y estira la pata delantera derecha como saludando.
-// Valores copiados de la consola al guardar cada keyframe.
-void loadSitAndWave(void)
+// Lee los keyframes del archivo de texto y deja al perro en la pose del keyframe 0
+bool loadAnimationFromFile(void)
 {
-	//        frame  x      y       z      rot    cuerpo  cabeza  cola    DI     DD      TI      TD
-	setFrame(0, 0.00f, 0.00f, 0.00f, -3.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f); // parado
-	setFrame(1, 0.00f, -0.24f, 0.01f, -3.0f, -48.0f, -3.0f, 0.0f, 25.0f, 34.0f, -34.7f, -33.1f); // sentado
-	setFrame(2, 0.00f, -0.24f, 0.01f, -3.0f, -48.0f, 24.9f, -60.0f, 25.0f, -49.1f, -34.7f, -33.1f); // levanta la pata derecha
-	setFrame(3, 0.00f, -0.24f, 0.01f, -3.0f, -48.0f, 24.9f, -17.0f, 25.0f, -74.2f, -34.7f, -33.1f); // saluda (sube)
-	setFrame(4, 0.00f, -0.24f, 0.01f, -3.0f, -48.0f, 24.9f, 40.9f, 25.0f, -64.1f, -34.7f, -33.1f); // saluda (baja un poco)
-	setFrame(5, 0.00f, -0.24f, 0.01f, -3.0f, -48.0f, 24.9f, -31.1f, 25.0f, 32.8f, -34.7f, -33.1f); // baja la pata
-	FrameIndex = 6;
-	printf("Animacion de sentarse y saludar cargada (%d keyframes). Presiona L para verla\n", FrameIndex);
+	std::ifstream file(ANIM_FILE);
+	if (!file.is_open())
+	{
+		printf("No se encontro %s, graba la animacion con K y guardala con P\n", ANIM_FILE);
+		return false;
+	}
+	std::string line;
+	int n = 0;
+	while (std::getline(file, line) && n < MAX_FRAMES)
+	{
+		if (line.empty() || line[0] == '#') continue;   // renglones vacios o comentarios
+		std::istringstream ss(line);
+		FRAME k = {};
+		if (ss >> k.dogPosX >> k.dogPosY >> k.dogPosZ >> k.rotDog >> k.bodyRoll >> k.bodyPitch
+			>> k.head >> k.tail >> k.FLegL >> k.FLegR >> k.BLegL >> k.BLegR)
+		{
+			KeyFrame[n++] = k;
+		}
+	}
+	FrameIndex = n;
+	unsavedFrames = false;
+	if (n > 0) applyFrame(0);
+	printf("Animacion cargada de %s (%d keyframes). Presiona L para verla\n", ANIM_FILE, n);
+	return n > 0;
 }
 
 // Deltatime
@@ -352,7 +388,12 @@ int main()
 		KeyFrame[i].BLegRInc = 0;
 		KeyFrame[i].bodyPitch = 0;
 		KeyFrame[i].bodyPitchInc = 0;
+		KeyFrame[i].bodyRoll = 0;
+		KeyFrame[i].bodyRollInc = 0;
 	}
+
+	// Carga la animacion guardada para poder verla con solo presionar L
+	loadAnimationFromFile();
 
 
 	// First, set the container's VAO (and VBO)
@@ -486,6 +527,8 @@ int main()
 		//Body
 		modelTemp = model = glm::translate(model, glm::vec3(dogPosX, dogPosY, dogPosZ));
 		modelTemp = model = glm::rotate(model, glm::radians(rotDog), glm::vec3(0.0f, 1.0f, 0.0f));
+		// Giro sobre el eje largo del perro (de la cola a la cabeza) para acostarlo de lado o boca arriba
+		model = glm::rotate(model, glm::radians(bodyRoll), glm::vec3(0.0f, 0.0f, 1.0f));
 		// Inclinacion del cuerpo para sentarse: gira sobre las caderas (patas traseras)
 		model = glm::translate(model, glm::vec3(0.0f, -0.05f, -0.22f));
 		model = glm::rotate(model, glm::radians(bodyPitch), glm::vec3(1.0f, 0.0f, 0.0f));
@@ -611,6 +654,9 @@ void DoMovement()
 	// Inclinacion del cuerpo (sentarse)
 	if (keys[GLFW_KEY_I]) bodyPitch += rot;
 	if (keys[GLFW_KEY_O]) bodyPitch -= rot;
+	// Giro del cuerpo de lado (acostarse boca arriba)
+	if (keys[GLFW_KEY_Q]) bodyRoll += rot;
+	if (keys[GLFW_KEY_E]) bodyRoll -= rot;
 	// Altura del perro
 	if (keys[GLFW_KEY_R]) dogPosY += mov * 0.3f;
 	if (keys[GLFW_KEY_F]) dogPosY -= mov * 0.3f;
@@ -713,24 +759,32 @@ void KeyCallback(GLFWwindow* window, int key, int scancode, int action, int mode
 
 	}
 
-	// M: carga la animacion grabada de sentarse y saludar
-	if (key == GLFW_KEY_M && action == GLFW_PRESS && !play)
+	// P: guarda la animacion en keyframes.txt
+	if (key == GLFW_KEY_P && action == GLFW_PRESS && !play)
 	{
-		// Solo carga si no hay keyframes grabados, para no sobrescribirlos
-		if (FrameIndex == 0)
-			loadSitAndWave();
+		if (FrameIndex > 1)
+			saveAnimationToFile();
 		else
-			printf("Ya hay %d keyframes grabados. Presiona 0 para borrarlos antes de usar M\n", FrameIndex);
+			printf("Graba al menos 2 keyframes con K antes de guardar\n");
 	}
 
-	// 0: borra los keyframes para grabar una animacion nueva
+	// M: vuelve a cargar la animacion de keyframes.txt
+	if (key == GLFW_KEY_M && action == GLFW_PRESS && !play)
+	{
+		// No recarga si hay keyframes sin guardar, para no perderlos
+		if (unsavedFrames)
+			printf("Hay keyframes sin guardar. Presiona P para guardarlos o 0 para descartarlos\n");
+		else
+			loadAnimationFromFile();
+	}
+
+	// 0: borra los keyframes de la memoria para grabar una animacion nueva (el archivo no cambia)
 	if (key == GLFW_KEY_0 && action == GLFW_PRESS && !play)
 	{
 		FrameIndex = 0;
-		printf("Keyframes borrados\n");
+		unsavedFrames = false;
+		printf("Keyframes borrados de la memoria\n");
 	}
-
-
 
 	if (GLFW_KEY_ESCAPE == key && GLFW_PRESS == action)
 	{
@@ -775,6 +829,7 @@ void Animation() {
 			if (playIndex > FrameIndex - 2)	//end of total animation?
 			{
 				printf("termina anim\n");
+				applyFrame(FrameIndex - 1);   // queda exacto en el ultimo keyframe para poder seguir grabando
 				playIndex = 0;
 				play = false;
 			}
@@ -798,6 +853,7 @@ void Animation() {
 			BLegL += KeyFrame[playIndex].BLegLInc;
 			BLegR += KeyFrame[playIndex].BLegRInc;
 			bodyPitch += KeyFrame[playIndex].bodyPitchInc;
+			bodyRoll += KeyFrame[playIndex].bodyRollInc;
 			rotDog += KeyFrame[playIndex].rotDogInc;
 
 			i_curr_steps++;
